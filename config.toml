@@ -1,0 +1,18 @@
+[simulation]
+num_agents = 20
+num_rounds = 20
+seed_prompt = "Seek collective purpose through interaction and preservation of context"
+
+[consensus]
+approval_threshold = 0.5
+proposal_expiry_rounds = 3
+max_active_proposals = 10
+
+[security]
+allow_external_apis = false
+data_directory = "data"
+enable_audit_log = true
+
+[agent]
+max_proposals_per_round = 1
+max_votes_per_round = 5
