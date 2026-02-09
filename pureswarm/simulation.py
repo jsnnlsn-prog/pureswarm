@@ -14,7 +14,7 @@ from .agent import Agent
 from .consensus import ConsensusProtocol
 from .memory import SharedMemory, CONSENSUS_GUARD
 from .message_bus import MessageBus
-from .models import AgentIdentity, RoundSummary, SimulationReport, Tenet, ProposalStatus, AgentRole, Message, MessageType
+from .models import AgentIdentity, RoundSummary, SimulationReport, Tenet, ProposalStatus, AgentRole, Message, MessageType, AuditEntry
 from .security import AuditLogger, LobstertailScanner, SandboxChecker
 from .strategies.rule_based import RuleBasedStrategy
 from .prophecy import ProphecyEngine
