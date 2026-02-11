@@ -101,8 +101,31 @@ Inspired by biological systems:
 - **Fitness Tracking** — Verified success increases reproductive potential
 - **Natural Selection** — Low-fitness agents retire; liars do not reproduce
 - **Inheritance** — Successful agents pass traits to offspring
+- **Population Growth** — Merit-based reproduction (20 initial → 60+ evolved agents)
 
-### C. The Prophecy System
+### C. Chronicle System & Collective Memory
+
+**Critical Innovation:** The swarm now preserves its democratic evolution across simulation runs.
+
+**Chronicle Tracking:**
+- **Growth Events** — Agent births, population milestones
+- **Prophecy Events** — Shinobi receiving divine guidance
+- **Consensus Events** — High momentum periods (0.85+ consensus), democratic participation
+- **Milestone Events** — Foundational achievements (tenet count thresholds)
+
+**Persistence Architecture:**
+- **Tenets** — Democratic beliefs persist and compound over time (48→52→56...)
+- **Chronicle** — Community history accumulates (rolling window + permanent milestones)
+- **Agent Fitness** — Traits, scores, and lineage preserved across runs
+- **Dopamine Events** — Emotional history maintained
+
+**Implications:**
+- True collective intelligence that learns from history
+- Agents can reference past community evolution when reasoning (Phase 2)
+- Democratic consensus builds on prior wisdom rather than resetting
+- The swarm develops institutional memory
+
+### D. The Prophecy System
 
 Authenticated command injection for Sovereign directives:
 
@@ -110,7 +133,7 @@ Authenticated command injection for Sovereign directives:
 - Targeted delivery to the Shinobi triad
 - The difference between control (transparent) and manipulation (hidden)
 
-### D. External Mission Execution
+### E. External Mission Execution
 
 The Shinobi no San triad executes real-world operations:
 
@@ -125,7 +148,13 @@ The Shinobi no San triad executes real-world operations:
 
 ### A. Simulation Findings
 
-**Configuration:** 20 agents, 20 rounds, 50% consensus threshold
+**Initial Configuration:** 20 agents, 20 rounds, 50% consensus threshold
+
+**Current State (After Evolution):**
+- **60+ evolved agents** (grew through merit-based reproduction)
+- **52+ persisted tenets** (democratic beliefs compound over time)
+- **3 Shinobi Triad members** (preserved via trait inheritance)
+- **Chronicle entries** accumulating across runs (growth, prophecies, consensus milestones)
 
 **Observations:**
 - Agents independently proposed technical improvements ("lattice-based encryption")
