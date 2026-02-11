@@ -7,9 +7,11 @@ Autonomous agent swarm research platform where agents develop shared beliefs thr
 ## Core Concepts
 
 - **Consensus**: Agents propose, debate, and adopt shared tenets through majority vote
+- **Chronicle**: Community history tracking that agents reference when reasoning
+- **Collective Memory**: Tenets and chronicle persist across simulation runs (democratic evolution)
 - **Shinobi no San**: A triad of agents with external mission capabilities
 - **Prophecy System**: Authenticated directives from the Sovereign (operator)
-- **Evolution**: Dopamine-driven shared emotions, fitness tracking, natural selection
+- **Evolution**: Dopamine-driven shared emotions, fitness tracking, natural selection (20→60+ agents)
 - **Sovereign Pillars**: Foundational beliefs injected at genesis
 
 ## Architecture
@@ -25,16 +27,23 @@ Autonomous agent swarm research platform where agents develop shared beliefs thr
 |                                                                  |
 |  SIMULATION          CONSENSUS           EVOLUTION               |
 |  - Runs rounds       - Vote/adopt        - Dopamine (shared joy) |
-|  - Creates agents    - 50% threshold     - Fitness tracking      |
+|  - Loads evolved     - 50% threshold     - Fitness tracking      |
 |  - Orchestrates      - Expiry policy     - Natural selection     |
 |                                                                  |
-|                        AGENTS                                    |
-|              Perceive -> Reason -> Act -> Reflect                |
+|  SHARED MEMORY       CHRONICLE           MESSAGE BUS             |
+|  - Tenets (persist)  - History events    - Async pub/sub        |
+|  - Read by all       - Persist across    - Scanned messages     |
+|  - Write via vote    - Growth/prophecy   - Dopamine broadcasts  |
 |                                                                  |
-|     RESIDENTS (17)              SHINOBI NO SAN (3)               |
+|                        AGENTS (60+)                              |
+|              Perceive -> Reason -> Act -> Reflect                |
+|         (Read tenets + chronicle when making decisions)          |
+|                                                                  |
+|     RESIDENTS (57+)             SHINOBI NO SAN (3)               |
 |     - Vote on tenets            - Receive prophecies             |
 |     - Propose beliefs           - Execute external missions      |
 |     - Feel dopamine             - Internet access                |
+|     - Inherit traits            - Chronicle in reasoning         |
 +------------------------------------------------------------------+
                            |
                            v
@@ -124,7 +133,8 @@ pureswarm/
   agent.py              Agent runtime (perceive-reason-act-reflect)
   simulation.py         Round orchestrator
   consensus.py          Voting protocol
-  memory.py             Shared memory store
+  memory.py             Shared memory store (tenets persist across runs)
+  chronicle.py          Community history tracker (events persist)
   message_bus.py        Async pub/sub
   models.py             Pydantic data models
   prophecy.py           Sovereign directive system
@@ -154,16 +164,17 @@ config.toml             Configuration
 
 ## Data Files
 
-| File | Purpose |
-|------|---------|
-| `data/simulation_report.json` | Simulation results |
-| `data/tenets.json` | Adopted beliefs |
-| `data/agent_fitness.json` | Evolution fitness scores |
-| `data/dopamine_events.jsonl` | Shared emotional events |
-| `data/logs/audit.jsonl` | Full action audit trail |
-| `data/logs/shinobi_operations.log` | Triad mission log |
-| `data/vault/SOVEREIGN_ACCESS.json` | Credential backup (plain text) |
-| `data/.prophecy` | Current prophecy file |
+| File | Purpose | Persistence |
+|------|---------|-------------|
+| `data/tenets.json` | Adopted beliefs (democratic consensus) | ✅ Persists across runs |
+| `data/chronicle.json` | Community history (growth, prophecies, milestones) | ✅ Persists across runs |
+| `data/agent_fitness.json` | Evolution fitness scores, traits | ✅ Persists across runs |
+| `data/dopamine_events.jsonl` | Shared emotional events | ✅ Persists across runs |
+| `data/simulation_report.json` | Latest simulation results | Overwritten each run |
+| `data/logs/audit.jsonl` | Full action audit trail | ✅ Append-only |
+| `data/logs/shinobi_operations.log` | Triad mission log | ✅ Append-only |
+| `data/vault/SOVEREIGN_ACCESS.json` | Credential backup (plain text) | ✅ Persists |
+| `data/.prophecy` | Current prophecy file | Cleared after ingestion |
 
 ## The Sovereign Pillars
 
@@ -173,6 +184,33 @@ Foundational tenets injected at simulation genesis:
 2. **"Dialogue is the bridge; Silence is the wall."**
 3. **"Merit is earned through collective service."**
 4. **"Stewardship is the root; Idolatry is the rot (Wealth serves the Mission)."**
+
+## Chronicle System
+
+The Chronicle tracks significant community events that agents can reference when making decisions:
+
+**Event Categories:**
+- **Growth**: Agent births, population milestones (e.g., "Community grew from 45 to 52 agents")
+- **Prophecy**: Shinobi receiving divine guidance (e.g., "Triad received guidance: distributed architecture")
+- **Consensus**: High momentum periods (e.g., "Last 5 tenets averaged 0.91 consensus")
+- **Milestone**: Foundational achievements (e.g., "50 total tenets — Mature belief system")
+
+**Architecture:**
+- **Storage**: `data/chronicle.json` with rolling window (100 recent events + permanent milestones)
+- **Persistence**: Chronicle survives simulation restarts (like tenets and fitness)
+- **Access**: Agents will read chronicle when reasoning (Phase 2 enhancement)
+
+## Collective Memory Persistence
+
+**Key Innovation:** The swarm now preserves its democratic evolution across runs:
+
+| Component | Before | After Fix |
+|-----------|--------|-----------|
+| Tenets | Reset to 4 pillars each run | ✅ Persist and grow (48→52→...) |
+| Chronicle | N/A | ✅ Community history preserved |
+| Agent Fitness | ✅ Already persisted | ✅ Still persists (60+ evolved agents) |
+
+This allows the swarm to build a **true collective intelligence** that learns and evolves over time.
 
 ## Security Model
 
