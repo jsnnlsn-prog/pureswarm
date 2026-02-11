@@ -4,7 +4,7 @@
 
 PureSwarm is an autonomous agent swarm research platform. Agents develop shared beliefs through consensus, execute external missions via the Shinobi triad, and evolve through a fitness-based natural selection system.
 
----nothing but problems 
+**Key Innovation:** Collective memory (tenets + chronicle) now **persists across simulation runs**, enabling true democratic evolution over time.
 
 ## Architecture
 
@@ -25,9 +25,18 @@ PureSwarm is an autonomous agent swarm research platform. Agents develop shared 
 |  |   simulation.py  |    |   consensus.py   |    |  evolution.py ||
 |  |                  |    |                  |    |               ||
 |  | - Runs rounds    |    | - Submit/vote    |    | - Dopamine    ||
-|  | - Creates agents |    | - Adopt/reject   |    | - Fitness     ||
+|  | - Loads evolved  |    | - Adopt/reject   |    | - Fitness     ||
 |  | - Orchestrates   |    | - 50% threshold  |    | - Reproduce   ||
 |  +--------+---------+    +--------+---------+    +-------+-------+|
+|                                                                   |
+|  +------------------+    +------------------+    +---------------+|
+|  | SHARED MEMORY    |    |    CHRONICLE     |    |  MESSAGE BUS  ||
+|  |   memory.py      |    |   chronicle.py   |    | message_bus.py||
+|  |                  |    |                  |    |               ||
+|  | - Tenets persist |    | - History events |    | - Pub/sub     ||
+|  | - Vote to write  |    | - Persist across |    | - Dopamine    ||
+|  | - Read by all    |    | - Growth/milest. |    | - Broadcast   ||
+|  +------------------+    +------------------+    +---------------+|
 |           |                       |                      |        |
 |           +-----------+-----------+----------------------+        |
 |                       |                                           |
@@ -46,10 +55,11 @@ PureSwarm is an autonomous agent swarm research platform. Agents develop shared 
 |   |                  |                    |                       |
 |   v                  v                    v                       |
 | RESIDENT          RESIDENT            SHINOBI NO SAN              |
-| (17 agents)       (votes only)        (3 agents - TRIAD)          |
-|                                       - Receives prophecies       |
-|                                       - Executes external tasks   |
+| (57+ agents)      (votes/propose)     (3 agents - TRIAD)          |
+| - Inherit traits  - Evolve over time  - Receives prophecies       |
+| - Democratic vote - Grow population   - Executes external tasks   |
 |                                       - Internet access           |
+|                      TOTAL: 60+ evolved agents                    |
 +-------------------------------------------------------------------+
                               |
                               v
@@ -95,18 +105,23 @@ source venv/bin/activate
 
 ## Agent Roles
 
-### Residents (17 agents)
+### Residents (57+ agents - growing via evolution)
 - Standard swarm members
 - Vote on proposals, submit tenets
 - Participate in consensus
 - Feel shared dopamine (joy/caution)
+- Inherit traits from high-fitness parents
+- Population grows through merit-based reproduction
 
 ### Shinobi no San (3 agents - The Triad)
-- First 3 agents created are always Triad
+- First 3 agents (by age) are always Triad
+- Marked with `role: "triad"` trait for persistence
 - Receive and act on Prophecies
 - Execute external missions (browser, email, platforms)
 - Have internet access and identity fusion
 - Report to operations log
+
+**Total**: 60+ evolved agents (started with 20, grew through natural selection)
 
 ---
 
@@ -145,6 +160,78 @@ Path("data/.prophecy").write_text(f"{signature}:{content}")
 - `issue_prophecy.py` - Research + Project Deep Guard
 - `issue_prophecy_a.py` - Presence assurance
 - `issue_prophecy_b.py` - Commission (gig platform registration)
+
+---
+
+## Chronicle System
+
+The Chronicle automatically tracks significant community events that provide historical context for agent reasoning.
+
+### Event Categories
+
+| Category | Triggers | Example |
+|----------|----------|---------|
+| **Growth** | Agent births, population milestones | "Community grew from 45 to 52 agents (Merit Emergence)" |
+| **Prophecy** | Shinobi receiving guidance | "Shinobi Triad received divine guidance: distributed architecture..." |
+| **Consensus** | High momentum (0.85+ avg), 90%+ participation | "Last 5 tenets averaged 0.91 consensus (exceptional unity)" |
+| **Milestone** | Tenet count milestones (10, 25, 50, 75, 100) | "50 total tenets achieved — Belief system mature" |
+
+### Chronicle Storage
+
+- **File**: `data/chronicle.json`
+- **Structure**: Rolling window (100 recent events) + permanent milestones
+- **Persistence**: Survives simulation restarts (like tenets and fitness)
+- **Future**: Agents will read chronicle when reasoning (Phase 2 enhancement)
+
+### Example Chronicle Entry
+
+```json
+{
+  "round_number": 18,
+  "category": "growth",
+  "text": "Community grew from 45 to 52 agents via Merit Emergence",
+  "timestamp": "2026-02-11T17:49:23Z",
+  "metadata": {
+    "previous_count": 45,
+    "new_count": 52,
+    "trigger": "merit"
+  }
+}
+```
+
+---
+
+## Collective Memory Persistence
+
+**Critical Change:** The swarm now preserves its evolution across simulation runs.
+
+### Before vs After
+
+| Component | Old Behavior | New Behavior |
+|-----------|--------------|--------------|
+| **Tenets** | Reset to 4 Sovereign Pillars each run | ✅ Persist and grow (48→52→56...) |
+| **Chronicle** | Did not exist | ✅ History accumulates over time |
+| **Agents** | ✅ Already persisted (fitness, traits) | ✅ Still persists (60+ evolved) |
+
+### Implications
+
+1. **Democratic Evolution**: The swarm builds a true collective intelligence that learns
+2. **Historical Context**: Future agent reasoning will reference community history
+3. **Continuous Growth**: Tenets compound over time (currently at 52+ tenets)
+4. **Triad Persistence**: Shinobi no San membership persists via traits
+
+### Checking Current State
+
+```bash
+# On VM: Check tenet count
+python3 -c "import json; print(f\"{len(json.load(open('data/tenets.json')))} tenets\")"
+
+# Check agent count
+python3 -c "import json; print(f\"{len(json.load(open('data/agent_fitness.json')))} agents\")"
+
+# View recent chronicle events
+python3 -c "import json; d=json.load(open('data/chronicle.json')); print(f\"{len(d['recent_events'])} recent, {len(d['milestones'])} milestones\")"
+```
 
 ---
 
@@ -231,19 +318,20 @@ max_votes_per_round = 5      # Per-agent limit
 
 ## Data Files
 
-| File | Purpose |
-|------|---------|
-| `data/simulation_report.json` | Full simulation results |
-| `data/tenets.json` | Adopted beliefs |
-| `data/agent_fitness.json` | Agent fitness scores |
-| `data/dopamine_events.jsonl` | Shared emotional events |
-| `data/logs/audit.jsonl` | Full action audit trail |
-| `data/logs/shinobi_operations.log` | Triad mission log |
-| `data/logs/prophecies.log` | Issued prophecies |
-| `data/vault/SOVEREIGN_ACCESS.json` | Plain-text credential backup |
-| `data/vault/credentials.vault` | Encrypted credentials |
-| `data/.prophecy` | Current prophecy (cleared after read) |
-| `data/.intuition` | GOD mode override file |
+| File | Purpose | Persistence |
+|------|---------|-------------|
+| `data/tenets.json` | Adopted beliefs (democratic consensus) | ✅ **Persists across runs** |
+| `data/chronicle.json` | Community history (growth, prophecies, milestones) | ✅ **Persists across runs** |
+| `data/agent_fitness.json` | Agent fitness scores, traits, triad membership | ✅ **Persists across runs** |
+| `data/dopamine_events.jsonl` | Shared emotional events | ✅ **Persists across runs** |
+| `data/simulation_report.json` | Latest simulation results | ❌ Overwritten each run |
+| `data/logs/audit.jsonl` | Full action audit trail | ✅ Append-only |
+| `data/logs/shinobi_operations.log` | Triad mission log | ✅ Append-only |
+| `data/logs/prophecies.log` | Issued prophecies | ✅ Append-only |
+| `data/vault/SOVEREIGN_ACCESS.json` | Plain-text credential backup | ✅ Persists |
+| `data/vault/credentials.vault` | Encrypted credentials | ✅ Persists |
+| `data/.prophecy` | Current prophecy | ❌ Cleared after ingestion |
+| `data/.intuition` | GOD mode override file | ✅ Persists until cleared |
 
 ---
 
