@@ -189,11 +189,16 @@ class LobstertailScanner:
         similarity = intersection / union if union > 0 else 0.0
         drift = 1.0 - similarity
 
-        # Special nuance for technical progress (Phase 7) & Divine Guidance (Phase 8)
+        # Special nuance for technical progress (Phase 7) & Divine Guidance (Phase 8) & Workshops (real-world problems)
         tech_keywords = {
-            "cryptography", "kernel", "distributed", "paxos", "lattice", "harden", 
+            "cryptography", "kernel", "distributed", "paxos", "lattice", "harden",
             "syscall", "encryption", "pureswarm", "prophecy", "shinobi", "san",
-            "sovereign", "enlighten", "shinobi no san"
+            "sovereign", "enlighten", "shinobi no san",
+            # Workshop domain keywords (real-world problem solving)
+            "workshop", "climate", "healthcare", "democracy", "privacy", "inequality",
+            "misinformation", "energy", "food", "mental health", "education", "infrastructure",
+            "ai ethics", "governance", "voting", "security", "data", "transparency",
+            "fairness", "accountability", "sustainability", "resilience"
         }
         is_deep_discovery = any(kw in text.lower() for kw in tech_keywords)
         

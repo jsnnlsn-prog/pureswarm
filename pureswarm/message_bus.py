@@ -38,12 +38,17 @@ class MessageBus:
 
         Returns the number of agents that received the message.
         """
-        # Scan payload content for security violations
-        for value in message.payload.values():
-            if isinstance(value, str):
-                if not self._scanner.scan(value):
-                    logger.warning("Message from %s blocked by security", message.sender)
-                    return 0
+        # Exempt trusted system senders from security scanning
+        # (system, workshop, sovereign are internal components, not user-generated content)
+        trusted_senders = {"system", "workshop", "sovereign"}
+
+        if message.sender not in trusted_senders:
+            # Scan payload content for security violations
+            for value in message.payload.values():
+                if isinstance(value, str):
+                    if not self._scanner.scan(value):
+                        logger.warning("Message from %s blocked by security", message.sender)
+                        return 0
 
         delivered = 0
         for agent_id, queue in self._subscribers.items():

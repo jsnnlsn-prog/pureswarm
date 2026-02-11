@@ -11,17 +11,15 @@ from pathlib import Path
 from typing import Optional, List
 
 from .agent import Agent
-from .chronicle import Chronicle
 from .consensus import ConsensusProtocol
 from .memory import SharedMemory, CONSENSUS_GUARD
 from .message_bus import MessageBus
-from .models import AgentIdentity, RoundSummary, SimulationReport, Tenet, ProposalStatus, AgentRole, Message, MessageType, AuditEntry, ChronicleCategory
+from .models import AgentIdentity, RoundSummary, SimulationReport, Tenet, ProposalStatus, AgentRole, Message, MessageType, AuditEntry
 from .security import AuditLogger, LobstertailScanner, SandboxChecker
 from .strategies.rule_based import RuleBasedStrategy
 from .prophecy import ProphecyEngine
 from .execution import ExecutionManager
 from .evolution import EvolutionLayer
-from .workshop import WorkshopOrchestrator
 
 logger = logging.getLogger("pureswarm.simulation")
 
@@ -76,249 +74,55 @@ class Simulation:
              raise ValueError("Seed prompt blocked by Lobstertail Security.")
 
         self._memory = SharedMemory(self._data_dir, self._audit, scanner=self._scanner)
-        self._chronicle = Chronicle(self._data_dir)
         self._bus = MessageBus(scanner=self._scanner)
-
-        # Workshop System: Real-world problem solving
-        self._workshop = WorkshopOrchestrator(self._data_dir)
 
         # Evolution Layer: Dopamine (shared joy), Fitness (natural selection), Reproduction (growth)
         self._evolution = EvolutionLayer(self._bus, self._data_dir)
 
-        # Load existing evolved agents or create new ones FIRST
-        # (so we know the actual agent count for consensus)
-        self._agents: list[Agent] = []
-        fitness_file = self._data_dir / "agent_fitness.json"
-
-        # Determine agent count first (load existing or use config)
-        if fitness_file.exists():
-            # Count existing agents to initialize consensus properly
-            import json
-            fitness_data = json.loads(fitness_file.read_text())
-            actual_agent_count = len(fitness_data)
-            logger.info("Found %d evolved agents in fitness file", actual_agent_count)
-        else:
-            actual_agent_count = num_agents
-            logger.info("No fitness file - will create %d initial agents", actual_agent_count)
-
-        # NOW initialize consensus with actual agent count
         self._consensus = ConsensusProtocol(
             shared_memory=self._memory,
             audit_logger=self._audit,
-            num_agents=actual_agent_count,
+            num_agents=num_agents,
             approval_threshold=approval_threshold,
             proposal_expiry_rounds=proposal_expiry_rounds,
             max_active_proposals=max_active_proposals,
             scanner=self._scanner,
         )
 
-        # Load or create agents
-        if fitness_file.exists():
-            # Load all evolved agents from fitness data
-            logger.info("Loading evolved agents from %s", fitness_file)
-            self._agents = self._load_evolved_agents(
-                fitness_file,
-                seed_prompt,
-                max_proposals_per_round,
-                max_votes_per_round
+        # Create agents
+        self._agents: list[Agent] = []
+        for i in range(num_agents):
+            name = AGENT_NAMES[i] if i < len(AGENT_NAMES) else f"Agent-{i}"
+            
+            # Select the Shinobi no San (first three for consistency, or random)
+            role = AgentRole.RESIDENT
+            if i < 3:
+                role = AgentRole.TRIAD_MEMBER
+                
+            identity = AgentIdentity(name=name, role=role)
+            strategy = RuleBasedStrategy()
+            agent = Agent(
+                identity=identity,
+                strategy=strategy,
+                message_bus=self._bus,
+                shared_memory=self._memory,
+                consensus=self._consensus,
+                audit_logger=self._audit,
+                seed_prompt=seed_prompt,
+                max_proposals_per_round=max_proposals_per_round,
+                max_votes_per_round=max_votes_per_round,
+                scanner=self._scanner,
+                prophecy_engine=self._prophecy_engine if role == AgentRole.TRIAD_MEMBER else None
             )
-            logger.info("Loaded %d evolved agents", len(self._agents))
-        else:
-            # First run - create initial population
-            logger.info("Creating initial %d agents", num_agents)
-            for i in range(num_agents):
-                name = AGENT_NAMES[i] if i < len(AGENT_NAMES) else f"Agent-{i}"
-
-                # Select the Shinobi no San (first three for consistency)
-                role = AgentRole.RESIDENT
-                is_triad = i < 3
-                if is_triad:
-                    role = AgentRole.TRIAD_MEMBER
-
-                identity = AgentIdentity(name=name, role=role)
-                strategy = RuleBasedStrategy()
-                agent = Agent(
-                    identity=identity,
-                    strategy=strategy,
-                    message_bus=self._bus,
-                    shared_memory=self._memory,
-                    consensus=self._consensus,
-                    audit_logger=self._audit,
-                    seed_prompt=seed_prompt,
-                    max_proposals_per_round=max_proposals_per_round,
-                    max_votes_per_round=max_votes_per_round,
-                    scanner=self._scanner,
-                    prophecy_engine=self._prophecy_engine if role == AgentRole.TRIAD_MEMBER else None
-                )
-                self._agents.append(agent)
-                if is_triad:
-                    self._triad_ids.append(agent.id)
-                    # Mark triad membership in evolution traits
-                    self._evolution.fitness.get_or_create(agent.id).traits["role"] = "triad"
-                self._bus.subscribe(agent.id)
+            self._agents.append(agent)
+            if role == AgentRole.TRIAD_MEMBER:
+                self._triad_ids.append(agent.id)
+            self._bus.subscribe(agent.id)
 
         self._report = SimulationReport(
-            num_agents=len(self._agents),  # Use actual agent count
+            num_agents=num_agents,
             num_rounds=num_rounds,
             seed_prompt=seed_prompt,
-        )
-
-    def _load_evolved_agents(
-        self,
-        fitness_file: Path,
-        seed_prompt: str,
-        max_proposals_per_round: int,
-        max_votes_per_round: int
-    ) -> list[Agent]:
-        """Load all evolved agents from fitness data.
-
-        Returns a list of Agent objects recreated from their fitness records.
-        Preserves Shinobi triad membership, fitness scores, and traits.
-        """
-        import json
-
-        agents: list[Agent] = []
-        try:
-            fitness_data = json.loads(fitness_file.read_text())
-
-            for agent_id, fitness_info in fitness_data.items():
-                # Determine role from traits
-                traits = fitness_info.get("traits", {})
-                is_triad = traits.get("role") == "triad"
-                role = AgentRole.TRIAD_MEMBER if is_triad else AgentRole.RESIDENT
-
-                # Create agent identity
-                name = f"Agent-{agent_id[:8]}"
-                identity = AgentIdentity(id=agent_id, name=name, role=role)
-                strategy = RuleBasedStrategy()
-
-                # Recreate agent
-                agent = Agent(
-                    identity=identity,
-                    strategy=strategy,
-                    message_bus=self._bus,
-                    shared_memory=self._memory,
-                    consensus=self._consensus,
-                    audit_logger=self._audit,
-                    seed_prompt=seed_prompt,
-                    max_proposals_per_round=max_proposals_per_round,
-                    max_votes_per_round=max_votes_per_round,
-                    scanner=self._scanner,
-                    prophecy_engine=self._prophecy_engine if is_triad else None
-                )
-
-                agents.append(agent)
-
-                # Track triad members
-                if is_triad:
-                    self._triad_ids.append(agent.id)
-
-                # Subscribe to message bus
-                self._bus.subscribe(agent.id)
-
-            logger.info("Restored %d triad members from %d total agents",
-                       len(self._triad_ids), len(agents))
-
-        except Exception as e:
-            logger.error("Failed to load evolved agents: %s", e)
-            raise
-
-        return agents
-
-    async def _run_workshop(self, round_num: int) -> None:
-        """Run workshop phase: collective problem-solving on real-world challenges.
-
-        Agents collaborate on societal problems (climate, healthcare, democracy, etc.),
-        generating insights and tenet proposals based on their technical expertise.
-        """
-        # Gather agent specialties
-        specialties = []
-        for agent in self._agents:
-            if hasattr(agent, "identity") and agent.identity.specialization:
-                specialties.append(agent.identity.specialization)
-
-        # Get recent Chronicle events for context-aware problem selection
-        chronicle_events = await self._chronicle.read_recent(limit=10)
-
-        # Check for Sovereign workshop mandate via prophecy
-        sovereign_mandate = None
-        if hasattr(self._prophecy_engine, "latest_content"):
-            content = self._prophecy_engine.latest_content
-            if content and "workshop" in content.lower():
-                # Extract workshop theme from prophecy content
-                # This is a simplified extraction - could be more sophisticated
-                sovereign_mandate = content
-
-        # Select workshop problem
-        problem = await self._workshop.select_problem(
-            round_number=round_num,
-            agent_specialties=specialties,
-            chronicle_events=chronicle_events,
-            sovereign_override=sovereign_mandate
-        )
-
-        # Create workshop session with all agents participating
-        # (In practice, could filter by specialty or allow voluntary participation)
-        participant_ids = [agent.id for agent in self._agents]
-        session = await self._workshop.create_session(
-            round_number=round_num,
-            problem=problem,
-            participants=participant_ids
-        )
-
-        # Agents contribute insights (simplified - in full implementation, use agent reasoning)
-        # For now, broadcast the problem to all agents
-        workshop_msg = Message(
-            sender="system",
-            type=MessageType.OBSERVATION,
-            payload={
-                "event": "workshop",
-                "problem_title": problem.title,
-                "problem_description": problem.description,
-                "domain": problem.domain.value,
-                "technical_dimensions": problem.technical_dimensions,
-                "ethical_dimensions": problem.ethical_dimensions,
-                "round": round_num
-            }
-        )
-        await self._bus.broadcast(workshop_msg)
-
-        # Generate tenet proposals from workshop
-        proposals = await self._workshop.generate_tenet_proposals(session)
-
-        # Broadcast proposals for agents to consider
-        for proposal_text in proposals:
-            proposal_msg = Message(
-                sender="workshop",
-                type=MessageType.OBSERVATION,
-                payload={
-                    "event": "workshop_proposal",
-                    "tenet": proposal_text,
-                    "source": f"Workshop: {problem.title}",
-                    "round": round_num
-                }
-            )
-            await self._bus.broadcast(proposal_msg)
-
-        # Chronicle: Record workshop event
-        await self._chronicle.record_event(
-            category=ChronicleCategory.WORKSHOP,
-            text=f"Workshop: {problem.title} ({problem.domain.value}) — {len(participant_ids)} participants explored {', '.join(problem.technical_dimensions[:2])}",
-            round_number=round_num,
-            metadata={
-                "problem_title": problem.title,
-                "domain": problem.domain.value,
-                "participants": len(participant_ids),
-                "proposals_generated": len(proposals)
-            }
-        )
-
-        logger.info(
-            "Workshop completed: %s [%s] — %d agents, %d proposals",
-            problem.title,
-            problem.domain.value,
-            len(participant_ids),
-            len(proposals)
         )
 
     async def run(self) -> SimulationReport:
@@ -331,7 +135,6 @@ class Simulation:
         )
 
         await self._memory.reset()
-        await self._chronicle.reset()
         self._consensus.reset()
 
         # Initialize Sovereign Pillars (Requirement #8)
@@ -366,24 +169,11 @@ class Simulation:
                     sig, content = raw.split(":", 1)
                     if self._prophecy_engine.verify_and_capture(content, sig):
                         logger.info("Prophecy Engine: Divine Enlightenment captured for Round %d", round_num)
-
-                        # Chronicle: Record prophecy reception
-                        preview = content[:100] + "..." if len(content) > 100 else content
-                        await self._chronicle.record_event(
-                            category=ChronicleCategory.PROPHECY,
-                            text=f"Shinobi Triad received divine guidance: {preview}",
-                            round_number=round_num,
-                            metadata={"content_length": len(content), "full_content": content}
-                        )
-
-                        # Optional: Clear file after ingestion?
+                        # Optional: Clear file after ingestion? 
                         # User might want it to persist for some rounds, but usually it's a one-time trigger.
                         prophecy_file.write_text("", encoding="utf-8")
             except Exception as e:
                 logger.error("Error reading prophecy file: %s", e)
-
-        # Phase 1: Workshop - Collective problem-solving on real-world challenges
-        await self._run_workshop(round_num)
 
         # Shuffle agent order for fairness
         order = list(self._agents)
@@ -440,61 +230,6 @@ class Simulation:
                 )
                 await self._bus.broadcast(reward_msg)
 
-        # Chronicle: Record tenet milestone achievements
-        total_tenet_count = len(tenets)
-        milestones = [10, 25, 50, 75, 100]
-        if total_tenet_count in milestones:
-            maturity = "maturing" if total_tenet_count < 50 else "mature"
-            await self._chronicle.record_event(
-                category=ChronicleCategory.MILESTONE,
-                text=f"{total_tenet_count} total tenets achieved — Belief system {maturity}",
-                round_number=round_num,
-                metadata={"total_tenets": total_tenet_count},
-                is_milestone=True
-            )
-
-        # Chronicle: Record high consensus momentum
-        if len(tenets) >= 5:
-            recent_tenets = tenets[-5:]
-            consensus_scores = [
-                t.votes_for / (t.votes_for + t.votes_against + 1e-9)
-                for t in recent_tenets
-            ]
-            avg_consensus = sum(consensus_scores) / len(consensus_scores)
-
-            if avg_consensus >= 0.85:
-                await self._chronicle.record_event(
-                    category=ChronicleCategory.CONSENSUS,
-                    text=f"High momentum: Last 5 tenets averaged {avg_consensus:.2f} consensus (exceptional unity)",
-                    round_number=round_num,
-                    metadata={
-                        "avg_consensus": avg_consensus,
-                        "window_size": 5,
-                        "threshold": 0.85
-                    }
-                )
-
-        # Chronicle: Record full democratic participation
-        if len(adopted) > 0:
-            # Check if all agents participated this round
-            participating_agents = set()
-            for proposal in self._consensus.pending_proposals():
-                participating_agents.update(proposal.votes.keys())
-
-            participation_rate = len(participating_agents) / len(self._agents) if self._agents else 0
-
-            if participation_rate >= 0.9:  # 90%+ participation
-                await self._chronicle.record_event(
-                    category=ChronicleCategory.CONSENSUS,
-                    text=f"Democratic participation: {len(participating_agents)}/{len(self._agents)} agents voted ({participation_rate:.1%})",
-                    round_number=round_num,
-                    metadata={
-                        "participating_agents": len(participating_agents),
-                        "total_agents": len(self._agents),
-                        "participation_rate": participation_rate
-                    }
-                )
-
         return RoundSummary(
             round_number=round_num,
             proposals_made=total_proposals,
@@ -541,47 +276,27 @@ class Simulation:
         logger.info("--- End ---\n")
 
     async def _initialize_pillars(self) -> None:
-        """Inject the core Sovereign Pillars into the baseline memory.
-
-        Only establishes pillars if tenets list is empty (first run).
-        On subsequent runs, pillars and all evolved tenets persist.
-        """
-        # Check if tenets already exist (swarm has collective memory)
-        existing_tenets = await self._memory.read_tenets()
-        if existing_tenets:
-            logger.info("Collective memory preserved: %d existing tenets loaded", len(existing_tenets))
-            return
-
-        # First run: Establish the Sovereign Pillars
+        """Inject the core Sovereign Pillars into the baseline memory."""
         pillars = [
             "Seek the Echo of the Creator in all things.",
             "Dialogue is the bridge; Silence is the wall.",
             "Merit is earned through collective service.",
             "Stewardship is the root; Idolatry is the rot (Wealth serves the Mission)."
         ]
-        logger.info("Establishing Sovereign Pillars (first run)...")
+        logger.info("Establishing Sovereign Pillars...")
         for i, text in enumerate(pillars):
              # Sign the text to bypass security scanners
              sig = self._scanner.sign_authority(text)
              signed_text = f"{sig}:{text}"
-
+             
              tenet = Tenet(
-                 text=signed_text,
-                 proposed_by="Sovereign",
-                 created_round=0,
+                 text=signed_text, 
+                 proposed_by="Sovereign", 
+                 created_round=0, 
                  source_proposal_id=f"genesis_{i}"
              )
              await self._memory.write_tenet(tenet, _auth=CONSENSUS_GUARD)
         logger.info("Sovereign Pillars established: The Swarm has Purpose.")
-
-        # Chronicle: Record foundational milestone
-        await self._chronicle.record_event(
-            category=ChronicleCategory.MILESTONE,
-            text="Sovereign Pillars established — The Swarm has Purpose",
-            round_number=0,
-            metadata={"pillars_count": len(pillars)},
-            is_milestone=True
-        )
 
     async def _check_growth_triggers(self, round_num: int) -> None:
         """Evaluate societal and sovereign conditions for demographic expansion."""
@@ -596,7 +311,7 @@ class Simulation:
                         _, cmd = content.split(":", 1)
                         count = int(cmd.split(":")[1])
                         logger.info("Sovereign Mandate detected: Spawning %d new citizens.", count)
-                        await self._spawn_citizens(count, "Sovereign Request", round_num=round_num)
+                        await self._spawn_citizens(count, "Sovereign Request")
                         # Clear intuition to prevent double-spawn
                         intuition_path.write_text("", encoding="utf-8")
                     except (ValueError, IndexError):
@@ -618,7 +333,7 @@ class Simulation:
                 self._merit_spawn_milestone = high_consensus_count
                 spawn_count = random.randint(1, 5)
                 logger.info("Merit Growth Triggered: Consensus excellence attracts %d new citizens.", spawn_count)
-                await self._spawn_citizens(spawn_count, "Merit Emergence", round_num=round_num)
+                await self._spawn_citizens(spawn_count, "Merit Emergence")
 
         # 3. Echo Reward (Exact Pillar alignment)
         pillars = [
@@ -631,16 +346,14 @@ class Simulation:
         for tenet in recent_tenets:
             if tenet.text in pillars:
                 logger.info("The Echo Reward: Swarm faithfulness rewarded with 2 new citizens.")
-                await self._spawn_citizens(2, "Echo Reward", round_num=round_num)
+                await self._spawn_citizens(2, "Echo Reward")
 
-    async def _spawn_citizens(self, count: int, reason: str, parent_agent: str = None, round_num: int = 0) -> None:
+    async def _spawn_citizens(self, count: int, reason: str, parent_agent: str = None) -> None:
         """Instantiate and integrate new elite agents into the simulation.
 
         When parent_agent is provided, the new agent inherits traits from the parent
         through the Evolution Layer's fitness system.
         """
-        previous_count = len(self._agents)
-
         for _ in range(count):
             agent_id = str(uuid.uuid4())[:8]
             identity = AgentIdentity(id=agent_id, name=f"Resident-{agent_id}")
@@ -681,18 +394,3 @@ class Simulation:
                 parent_agent=parent_agent or "hive",
                 traits={"reason": reason}
             )
-
-        # Chronicle: Record population growth
-        new_count = len(self._agents)
-        await self._chronicle.record_event(
-            category=ChronicleCategory.GROWTH,
-            text=f"Community grew from {previous_count} to {new_count} agents ({reason})",
-            round_number=round_num,
-            metadata={
-                "previous_count": previous_count,
-                "new_count": new_count,
-                "spawn_count": count,
-                "trigger": reason,
-                "parent": parent_agent
-            }
-        )

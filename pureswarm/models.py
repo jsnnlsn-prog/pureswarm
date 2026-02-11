@@ -55,6 +55,23 @@ class ChronicleCategory(str, Enum):
     CONSENSUS = "consensus"
     MILESTONE = "milestone"
     SPECIALTY = "specialty"
+    WORKSHOP = "workshop"
+
+
+class ProblemDomain(str, Enum):
+    """Real-world societal challenge domains."""
+    CLIMATE = "climate"
+    MISINFORMATION = "misinformation"
+    HEALTHCARE = "healthcare"
+    INEQUALITY = "inequality"
+    PRIVACY = "privacy"
+    AI_ETHICS = "ai_ethics"
+    ENERGY = "energy"
+    FOOD_SECURITY = "food_security"
+    MENTAL_HEALTH = "mental_health"
+    DEMOCRACY = "democracy"
+    EDUCATION = "education"
+    INFRASTRUCTURE = "infrastructure"
 
 
 # ---------------------------------------------------------------------------
@@ -150,6 +167,40 @@ class ChronicleEvent(BaseModel):
     text: str
     timestamp: datetime = Field(default_factory=_now)
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+# ---------------------------------------------------------------------------
+# Workshops (real-world problem solving)
+# ---------------------------------------------------------------------------
+
+class WorkshopProblem(BaseModel):
+    """A real-world societal challenge for the swarm to tackle."""
+    id: str = Field(default_factory=_new_id)
+    title: str
+    description: str
+    domain: ProblemDomain
+    technical_dimensions: list[str] = Field(default_factory=list)  # e.g., ["distributed systems", "security", "data privacy"]
+    ethical_dimensions: list[str] = Field(default_factory=list)    # e.g., ["equity", "transparency", "autonomy"]
+    target_specialties: list[str] = Field(default_factory=list)    # Which agent specialties are most relevant
+
+
+class WorkshopInsight(BaseModel):
+    """A discovery or solution from workshop collaboration."""
+    agent_id: str
+    text: str
+    timestamp: datetime = Field(default_factory=_now)
+
+
+class WorkshopSession(BaseModel):
+    """A workshop instance where agents collaborate on a real-world problem."""
+    id: str = Field(default_factory=_new_id)
+    round_number: int
+    problem: WorkshopProblem
+    participants: list[str] = Field(default_factory=list)          # Agent IDs
+    insights: list[WorkshopInsight] = Field(default_factory=list)  # Collaborative discoveries
+    proposals_generated: list[str] = Field(default_factory=list)   # Tenet proposal IDs
+    started_at: datetime = Field(default_factory=_now)
+    completed_at: datetime | None = None
 
 
 # ---------------------------------------------------------------------------
