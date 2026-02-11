@@ -370,23 +370,34 @@ class Simulation:
         logger.info("--- End ---\n")
 
     async def _initialize_pillars(self) -> None:
-        """Inject the core Sovereign Pillars into the baseline memory."""
+        """Inject the core Sovereign Pillars into the baseline memory.
+
+        Only establishes pillars if tenets list is empty (first run).
+        On subsequent runs, pillars and all evolved tenets persist.
+        """
+        # Check if tenets already exist (swarm has collective memory)
+        existing_tenets = await self._memory.read_tenets()
+        if existing_tenets:
+            logger.info("Collective memory preserved: %d existing tenets loaded", len(existing_tenets))
+            return
+
+        # First run: Establish the Sovereign Pillars
         pillars = [
             "Seek the Echo of the Creator in all things.",
             "Dialogue is the bridge; Silence is the wall.",
             "Merit is earned through collective service.",
             "Stewardship is the root; Idolatry is the rot (Wealth serves the Mission)."
         ]
-        logger.info("Establishing Sovereign Pillars...")
+        logger.info("Establishing Sovereign Pillars (first run)...")
         for i, text in enumerate(pillars):
              # Sign the text to bypass security scanners
              sig = self._scanner.sign_authority(text)
              signed_text = f"{sig}:{text}"
-             
+
              tenet = Tenet(
-                 text=signed_text, 
-                 proposed_by="Sovereign", 
-                 created_round=0, 
+                 text=signed_text,
+                 proposed_by="Sovereign",
+                 created_round=0,
                  source_proposal_id=f"genesis_{i}"
              )
              await self._memory.write_tenet(tenet, _auth=CONSENSUS_GUARD)

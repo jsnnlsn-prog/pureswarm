@@ -99,8 +99,14 @@ class SharedMemory:
     # ------------------------------------------------------------------
 
     async def reset(self) -> None:
-        async with self._lock:
-            await asyncio.to_thread(self._write_json, [])
+        """Load existing tenets instead of wiping them.
+
+        This preserves collective memory across simulation runs,
+        allowing the swarm's belief system to grow over time.
+        """
+        # No-op: tenets persist across runs
+        # Initial empty state is handled by __init__ (line 44-45)
+        pass
 
     # ------------------------------------------------------------------
     # Internal helpers
