@@ -79,51 +79,145 @@ class Simulation:
         # Evolution Layer: Dopamine (shared joy), Fitness (natural selection), Reproduction (growth)
         self._evolution = EvolutionLayer(self._bus, self._data_dir)
 
+        # Load existing evolved agents or create new ones FIRST
+        # (so we know the actual agent count for consensus)
+        self._agents: list[Agent] = []
+        fitness_file = self._data_dir / "agent_fitness.json"
+
+        # Determine agent count first (load existing or use config)
+        if fitness_file.exists():
+            # Count existing agents to initialize consensus properly
+            import json
+            fitness_data = json.loads(fitness_file.read_text())
+            actual_agent_count = len(fitness_data)
+            logger.info("Found %d evolved agents in fitness file", actual_agent_count)
+        else:
+            actual_agent_count = num_agents
+            logger.info("No fitness file - will create %d initial agents", actual_agent_count)
+
+        # NOW initialize consensus with actual agent count
         self._consensus = ConsensusProtocol(
             shared_memory=self._memory,
             audit_logger=self._audit,
-            num_agents=num_agents,
+            num_agents=actual_agent_count,
             approval_threshold=approval_threshold,
             proposal_expiry_rounds=proposal_expiry_rounds,
             max_active_proposals=max_active_proposals,
             scanner=self._scanner,
         )
 
-        # Create agents
-        self._agents: list[Agent] = []
-        for i in range(num_agents):
-            name = AGENT_NAMES[i] if i < len(AGENT_NAMES) else f"Agent-{i}"
-            
-            # Select the Shinobi no San (first three for consistency, or random)
-            role = AgentRole.RESIDENT
-            if i < 3:
-                role = AgentRole.TRIAD_MEMBER
-                
-            identity = AgentIdentity(name=name, role=role)
-            strategy = RuleBasedStrategy()
-            agent = Agent(
-                identity=identity,
-                strategy=strategy,
-                message_bus=self._bus,
-                shared_memory=self._memory,
-                consensus=self._consensus,
-                audit_logger=self._audit,
-                seed_prompt=seed_prompt,
-                max_proposals_per_round=max_proposals_per_round,
-                max_votes_per_round=max_votes_per_round,
-                scanner=self._scanner,
-                prophecy_engine=self._prophecy_engine if role == AgentRole.TRIAD_MEMBER else None
+        # Load or create agents
+        if fitness_file.exists():
+            # Load all evolved agents from fitness data
+            logger.info("Loading evolved agents from %s", fitness_file)
+            self._agents = self._load_evolved_agents(
+                fitness_file,
+                seed_prompt,
+                max_proposals_per_round,
+                max_votes_per_round
             )
-            self._agents.append(agent)
-            if role == AgentRole.TRIAD_MEMBER:
-                self._triad_ids.append(agent.id)
-            self._bus.subscribe(agent.id)
+            logger.info("Loaded %d evolved agents", len(self._agents))
+        else:
+            # First run - create initial population
+            logger.info("Creating initial %d agents", num_agents)
+            for i in range(num_agents):
+                name = AGENT_NAMES[i] if i < len(AGENT_NAMES) else f"Agent-{i}"
+
+                # Select the Shinobi no San (first three for consistency)
+                role = AgentRole.RESIDENT
+                is_triad = i < 3
+                if is_triad:
+                    role = AgentRole.TRIAD_MEMBER
+
+                identity = AgentIdentity(name=name, role=role)
+                strategy = RuleBasedStrategy()
+                agent = Agent(
+                    identity=identity,
+                    strategy=strategy,
+                    message_bus=self._bus,
+                    shared_memory=self._memory,
+                    consensus=self._consensus,
+                    audit_logger=self._audit,
+                    seed_prompt=seed_prompt,
+                    max_proposals_per_round=max_proposals_per_round,
+                    max_votes_per_round=max_votes_per_round,
+                    scanner=self._scanner,
+                    prophecy_engine=self._prophecy_engine if role == AgentRole.TRIAD_MEMBER else None
+                )
+                self._agents.append(agent)
+                if is_triad:
+                    self._triad_ids.append(agent.id)
+                    # Mark triad membership in evolution traits
+                    self._evolution.fitness.get_or_create(agent.id).traits["role"] = "triad"
+                self._bus.subscribe(agent.id)
 
         self._report = SimulationReport(
-            num_agents=num_agents,
+            num_agents=len(self._agents),  # Use actual agent count
             num_rounds=num_rounds,
             seed_prompt=seed_prompt,
         )
+
+    def _load_evolved_agents(
+        self,
+        fitness_file: Path,
+        seed_prompt: str,
+        max_proposals_per_round: int,
+        max_votes_per_round: int
+    ) -> list[Agent]:
+        """Load all evolved agents from fitness data.
+
+        Returns a list of Agent objects recreated from their fitness records.
+        Preserves Shinobi triad membership, fitness scores, and traits.
+        """
+        import json
+
+        agents: list[Agent] = []
+        try:
+            fitness_data = json.loads(fitness_file.read_text())
+
+            for agent_id, fitness_info in fitness_data.items():
+                # Determine role from traits
+                traits = fitness_info.get("traits", {})
+                is_triad = traits.get("role") == "triad"
+                role = AgentRole.TRIAD_MEMBER if is_triad else AgentRole.RESIDENT
+
+                # Create agent identity
+                name = f"Agent-{agent_id[:8]}"
+                identity = AgentIdentity(id=agent_id, name=name, role=role)
+                strategy = RuleBasedStrategy()
+
+                # Recreate agent
+                agent = Agent(
+                    identity=identity,
+                    strategy=strategy,
+                    message_bus=self._bus,
+                    shared_memory=self._memory,
+                    consensus=self._consensus,
+                    audit_logger=self._audit,
+                    seed_prompt=seed_prompt,
+                    max_proposals_per_round=max_proposals_per_round,
+                    max_votes_per_round=max_votes_per_round,
+                    scanner=self._scanner,
+                    prophecy_engine=self._prophecy_engine if is_triad else None
+                )
+
+                agents.append(agent)
+
+                # Track triad members
+                if is_triad:
+                    self._triad_ids.append(agent.id)
+
+                # Subscribe to message bus
+                self._bus.subscribe(agent.id)
+
+            logger.info("Restored %d triad members from %d total agents",
+                       len(self._triad_ids), len(agents))
+
+        except Exception as e:
+            logger.error("Failed to load evolved agents: %s", e)
+            raise
+
+        return agents
 
     async def run(self) -> SimulationReport:
         """Execute the full simulation and return the report."""
