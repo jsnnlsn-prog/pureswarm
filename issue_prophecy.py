@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 def issue():
     load_dotenv()
-    key = os.getenv("SOVEREIGN_SECRET", "SOVEREIGN_KEY_FALLBACK")
+    key = os.getenv("PURES_SOVEREIGN_PASSPHRASE", "SOVEREIGN_KEY_FALLBACK")
     content = "RESEARCH: Security trends 2026. EXTERNAL: Shinobi no San initiate Project Deep Guard."
     signature = hmac.new(key.encode(), content.encode(), hashlib.sha256).hexdigest()[:16]
 

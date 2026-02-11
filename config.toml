@@ -9,7 +9,7 @@ proposal_expiry_rounds = 3
 max_active_proposals = 10
 
 [security]
-allow_external_apis = false
+allow_external_apis = true
 data_directory = "data"
 enable_audit_log = true
 

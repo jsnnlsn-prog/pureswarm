@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 from .consensus import ConsensusProtocol
 from .memory import SharedMemory
@@ -16,6 +18,7 @@ from .models import (
     Proposal,
     ProposalStatus,
 )
+from .prophecy import ProphecyEngine
 from .security import AuditLogger, LobstertailScanner
 from .strategies.base import BaseStrategy
 
@@ -94,16 +97,54 @@ class Agent:
                  if last_prophecy != f"Prophecy: {prophecy.content}":
                      logger.info("Agent %s (Shinobi no San member) internalizing Prophecy.", self.id)
                      self._lifetime_memory.append(f"Prophecy: {prophecy.content}")
-                     # 1. External Action / Fusion
+                     # 1. External Action / Fusion - Execute the real mission
                      if "EXTERNAL:" in prophecy.content:
                          task = prophecy.content.split("EXTERNAL:")[1].strip()
+                         # Log the legacy call for backwards compatibility
                          self._internet.perform_fusion_task(task)
+                         # Actually execute the mission asynchronously
+                         from .tools.mission import execute_external_mission
+                         try:
+                             mission_result = await execute_external_mission(
+                                 self.id, prophecy.content, Path("data")
+                             )
+                             if mission_result.get("success"):
+                                 self._lifetime_memory.append(f"Mission Success: {mission_result.get('operations_completed')}")
+                                 logger.info("Agent %s completed external mission: %s", self.id, mission_result)
+                             else:
+                                 self._lifetime_memory.append(f"Mission Errors: {mission_result.get('errors')}")
+                                 logger.warning("Agent %s mission had errors: %s", self.id, mission_result.get('errors'))
+                         except Exception as e:
+                             logger.error("Agent %s mission execution failed: %s", self.id, e)
+                             self._lifetime_memory.append(f"Mission Exception: {e}")
                      
-                     # 2. Market Research
+                     # 2. Market Research - Use Venice AI for deep analysis
                      if "RESEARCH:" in prophecy.content:
                          query = prophecy.content.split("RESEARCH:")[1].strip()
-                         insight = self._internet.search_market(query)
-                         self._lifetime_memory.append(f"Divine Insight: {insight}")
+                         logger.info("Agent %s (Shinobi) researching with Venice AI: %s", self.id, query[:100])
+                         try:
+                             research_result = await self._internet.analyze_task(query)
+                             if research_result.success:
+                                 insight = research_result.data
+                                 self._lifetime_memory.append(f"Divine Insight: {insight}")
+                                 # Log to operations for Sovereign review
+                                 ops_log = Path("data/logs/shinobi_research.log")
+                                 ops_log.parent.mkdir(parents=True, exist_ok=True)
+                                 with open(ops_log, "a", encoding="utf-8") as f:
+                                     f.write(f"\n{'='*60}\n")
+                                     f.write(f"RESEARCH: {datetime.now().isoformat()}\n")
+                                     f.write(f"Agent: {self.id}\n")
+                                     f.write(f"Query: {query[:200]}\n")
+                                     f.write(f"{'='*60}\n")
+                                     f.write(f"{insight}\n")
+                                     f.write(f"{'='*60}\n\n")
+                                 logger.info("Agent %s research complete, logged to shinobi_research.log", self.id)
+                             else:
+                                 logger.warning("Agent %s research failed: %s", self.id, research_result.error)
+                                 self._lifetime_memory.append(f"Research Failed: {research_result.error}")
+                         except Exception as e:
+                             logger.error("Agent %s research exception: %s", self.id, e)
+                             self._lifetime_memory.append(f"Research Exception: {e}")
 
         # 1. PERCEIVE
         messages = await self._bus.receive(self.id)

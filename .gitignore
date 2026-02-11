@@ -34,3 +34,24 @@ env/
 # Large files and test data
 data/red_team/
 *.tar.gz
+
+# Session and conversation backups (may contain sensitive context)
+conversation_backup*.md
+SESSION_CONTEXT.md
+
+# Sensitive runtime data - NEVER commit
+data/vault/
+data/.prophecy
+data/.intuition
+data/browser/
+data/instructions/
+data/dopamine_events.jsonl
+data/agent_fitness.json
+
+# Backup archives
+*.zip
+pureswarm_stealth.zip
+
+# Screenshots (may contain sensitive info)
+screenshots/
+Conversation_backup_1.py

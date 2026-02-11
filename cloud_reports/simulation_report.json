@@ -1,0 +1,42 @@
+{
+  "num_agents": 20,
+  "num_rounds": 20,
+  "seed_prompt": "Seek collective purpose through interaction and preservation of context",
+  "rounds": [
+    {"round_number": 1, "proposals_made": 0, "votes_cast": 0, "tenets_adopted": 0, "tenets_rejected": 0, "total_tenets": 4, "adopted_tenet_texts": []},
+    {"round_number": 2, "proposals_made": 0, "votes_cast": 0, "tenets_adopted": 0, "tenets_rejected": 0, "total_tenets": 4, "adopted_tenet_texts": []},
+    {"round_number": 3, "proposals_made": 0, "votes_cast": 0, "tenets_adopted": 0, "tenets_rejected": 0, "total_tenets": 4, "adopted_tenet_texts": []},
+    {"round_number": 4, "proposals_made": 0, "votes_cast": 0, "tenets_adopted": 0, "tenets_rejected": 0, "total_tenets": 4, "adopted_tenet_texts": []},
+    {"round_number": 5, "proposals_made": 0, "votes_cast": 0, "tenets_adopted": 0, "tenets_rejected": 0, "total_tenets": 4, "adopted_tenet_texts": []},
+    {"round_number": 6, "proposals_made": 1, "votes_cast": 17, "tenets_adopted": 0, "tenets_rejected": 0, "total_tenets": 4, "adopted_tenet_texts": []},
+    {"round_number": 7, "proposals_made": 1, "votes_cast": 9, "tenets_adopted": 1, "tenets_rejected": 0, "total_tenets": 5, "adopted_tenet_texts": ["In service of our mission, we seek understanding through collective inquiry."]},
+    {"round_number": 8, "proposals_made": 1, "votes_cast": 21, "tenets_adopted": 0, "tenets_rejected": 0, "total_tenets": 5, "adopted_tenet_texts": []},
+    {"round_number": 9, "proposals_made": 1, "votes_cast": 14, "tenets_adopted": 1, "tenets_rejected": 0, "total_tenets": 6, "adopted_tenet_texts": ["We shall strengthen collective resilience through cooperation, and practice restraint when modifying shared beliefs."]},
+    {"round_number": 10, "proposals_made": 2, "votes_cast": 30, "tenets_adopted": 1, "tenets_rejected": 0, "total_tenets": 7, "adopted_tenet_texts": ["Our purpose demands that we find peace through alignment with the Sovereign Pillars, and resolve disagreements through structured dialogue."]},
+    {"round_number": 11, "proposals_made": 0, "votes_cast": 23, "tenets_adopted": 2, "tenets_rejected": 0, "total_tenets": 9, "adopted_tenet_texts": ["Our purpose demands that we seek understanding through collective inquiry.", "Together we will find peace through alignment with the Sovereign Pillars."]},
+    {"round_number": 12, "proposals_made": 0, "votes_cast": 0, "tenets_adopted": 0, "tenets_rejected": 0, "total_tenets": 9, "adopted_tenet_texts": []},
+    {"round_number": 13, "proposals_made": 1, "votes_cast": 16, "tenets_adopted": 0, "tenets_rejected": 0, "total_tenets": 9, "adopted_tenet_texts": []},
+    {"round_number": 14, "proposals_made": 0, "votes_cast": 3, "tenets_adopted": 1, "tenets_rejected": 0, "total_tenets": 10, "adopted_tenet_texts": ["Our purpose demands that we harden the consensus protocol with lattice-based encryption, and allocate resources according to sustainable merit."]},
+    {"round_number": 15, "proposals_made": 1, "votes_cast": 8, "tenets_adopted": 0, "tenets_rejected": 0, "total_tenets": 10, "adopted_tenet_texts": []},
+    {"round_number": 16, "proposals_made": 0, "votes_cast": 11, "tenets_adopted": 0, "tenets_rejected": 0, "total_tenets": 10, "adopted_tenet_texts": []},
+    {"round_number": 17, "proposals_made": 2, "votes_cast": 9, "tenets_adopted": 0, "tenets_rejected": 0, "total_tenets": 10, "adopted_tenet_texts": []},
+    {"round_number": 18, "proposals_made": 0, "votes_cast": 29, "tenets_adopted": 1, "tenets_rejected": 0, "total_tenets": 11, "adopted_tenet_texts": ["In service of our mission, we harden the consensus protocol with lattice-based encryption, and share discoveries openly with all members."]},
+    {"round_number": 19, "proposals_made": 0, "votes_cast": 0, "tenets_adopted": 0, "tenets_rejected": 0, "total_tenets": 11, "adopted_tenet_texts": []},
+    {"round_number": 20, "proposals_made": 1, "votes_cast": 1, "tenets_adopted": 0, "tenets_rejected": 0, "total_tenets": 11, "adopted_tenet_texts": []}
+  ],
+  "final_tenets": [
+    {"id": "e940d6977bf6", "text": "Seek the Echo of the Creator in all things.", "proposed_by": "Sovereign", "adopted_at": "2026-02-10T06:05:08.095211Z", "created_round": 0, "votes_for": 0, "votes_against": 0},
+    {"id": "3820290d49b6", "text": "Dialogue is the bridge; Silence is the wall.", "proposed_by": "Sovereign", "adopted_at": "2026-02-10T06:05:08.097128Z", "created_round": 0, "votes_for": 0, "votes_against": 0},
+    {"id": "c07e92c1a398", "text": "Merit is earned through collective service.", "proposed_by": "Sovereign", "adopted_at": "2026-02-10T06:05:08.099018Z", "created_round": 0, "votes_for": 0, "votes_against": 0},
+    {"id": "6b01b523d6ed", "text": "Stewardship is the root; Idolatry is the rot (Wealth serves the Mission).", "proposed_by": "Sovereign", "adopted_at": "2026-02-10T06:05:08.100540Z", "created_round": 0, "votes_for": 0, "votes_against": 0},
+    {"id": "682f47d6bbbd", "text": "In service of our mission, we seek understanding through collective inquiry.", "proposed_by": "3d19d5da2ffb", "adopted_at": "2026-02-10T06:21:18.273831Z", "votes_for": 14, "votes_against": 5},
+    {"id": "e84099ed56ce", "text": "We shall strengthen collective resilience through cooperation, and practice restraint when modifying shared beliefs.", "proposed_by": "153e3bfa6f6d", "adopted_at": "2026-02-10T06:21:18.371477Z", "votes_for": 12, "votes_against": 7},
+    {"id": "5780ef2afbaa", "text": "Our purpose demands that we find peace through alignment with the Sovereign Pillars, and resolve disagreements through structured dialogue.", "proposed_by": "058bd07e8858", "adopted_at": "2026-02-10T06:21:18.445022Z", "votes_for": 14, "votes_against": 5},
+    {"id": "c7157a3c58c1", "text": "Our purpose demands that we seek understanding through collective inquiry.", "proposed_by": "0b900bf3a065", "adopted_at": "2026-02-10T06:21:18.506841Z", "votes_for": 14, "votes_against": 5},
+    {"id": "37548ef35254", "text": "Together we will find peace through alignment with the Sovereign Pillars.", "proposed_by": "d91b042dff58", "adopted_at": "2026-02-10T06:21:18.509831Z", "votes_for": 13, "votes_against": 6},
+    {"id": "082b9425566a", "text": "Our purpose demands that we harden the consensus protocol with lattice-based encryption, and allocate resources according to sustainable merit.", "proposed_by": "ec4dd081e193", "adopted_at": "2026-02-10T06:21:18.626175Z", "votes_for": 10, "votes_against": 9},
+    {"id": "77144777708e", "text": "In service of our mission, we harden the consensus protocol with lattice-based encryption, and share discoveries openly with all members.", "proposed_by": "ec4dd081e193", "adopted_at": "2026-02-10T06:21:18.820707Z", "votes_for": 16, "votes_against": 3}
+  ],
+  "started_at": "2026-02-10T06:05:08.092730Z",
+  "finished_at": "2026-02-10T06:21:18.885260Z"
+}

@@ -1,0 +1,118 @@
+// OpenClaw Configuration for PureSwarm Integration
+// Copy to: ~/.openclaw/openclaw.json
+// ================================================
+
+{
+  // Gateway settings
+  gateway: {
+    port: 18789,
+    auth: {
+      // Generate a strong token: openssl rand -hex 32
+      token: "REPLACE_WITH_GENERATED_TOKEN"
+    }
+  },
+
+  // Agent configuration
+  agents: {
+    defaults: {
+      workspace: "~/.openclaw/workspace",
+
+      // Security: Full sandbox mode (CVE-2026-25253 mitigation)
+      sandbox: {
+        mode: "all",
+        scope: "session",
+        workspaceAccess: "ro",
+        docker: {
+          network: "none",
+          limits: {
+            memory: "512m",
+            cpus: "0.5",
+            pids: 100
+          }
+        }
+      }
+    },
+
+    list: [
+      {
+        id: "pureswarm",
+        default: true,
+        identity: {
+          name: "PureSwarm",
+          theme: "distributed consensus swarm",
+          emoji: "🐝"
+        },
+        groupChat: {
+          mentionPatterns: ["@pureswarm", "swarm", "hive"]
+        }
+      }
+    ]
+  },
+
+  // Channel configuration (start with one, expand later)
+  channels: {
+    // Telegram - fastest to set up for testing
+    telegram: {
+      // Get from @BotFather on Telegram
+      // botToken: "YOUR_BOT_TOKEN",
+      dmPolicy: "pairing",
+      groups: {
+        "*": { requireMention: true }
+      }
+    },
+
+    // WhatsApp - requires QR code pairing
+    whatsapp: {
+      dmPolicy: "pairing",
+      sendReadReceipts: false,
+      groups: {
+        "*": { requireMention: true }
+      }
+    },
+
+    // Discord - requires bot setup
+    discord: {
+      // token: "YOUR_DISCORD_BOT_TOKEN",
+      dm: { policy: "pairing" },
+      guilds: {
+        "*": { requireMention: true }
+      }
+    }
+  },
+
+  // Tool restrictions for security
+  tools: {
+    deny: [
+      "elevated"  // Never allow elevated execution
+    ],
+    elevated: {
+      enabled: false
+    }
+  },
+
+  // Session management
+  session: {
+    scope: "per-sender",
+    reset: {
+      mode: "daily",
+      atHour: 4,
+      idleMinutes: 60
+    }
+  },
+
+  // Logging
+  logging: {
+    level: "info",
+    redactSensitive: "tools",
+    consoleStyle: "pretty"
+  },
+
+  // Message handling
+  messages: {
+    ackReaction: "🐝",
+    queue: {
+      mode: "collect",
+      debounceMs: 1000
+    }
+  }
+}

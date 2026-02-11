@@ -1,3 +1,13 @@
+# Core
 pydantic>=2.0
 pytest>=7.0
 python-dotenv>=1.0
+
+# Shinobi Tools - External Operations
+playwright>=1.40.0          # Browser automation
+httpx>=0.25.0               # Async HTTP client
+cryptography>=41.0.0        # Vault encryption
+
+# Optional but recommended
+pytest-asyncio>=0.21.0      # Async test support
+flask>=3.0.0                # SMS receiver webhook

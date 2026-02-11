@@ -63,6 +63,7 @@ ACTION_THEMES = [
 # ---------------------------------------------------------------------------
 
 TECH_SPECIALTIES = {
+    # Original 6 Specialties
     "Cryptography": [
         "implement zero-knowledge proofs for audit privacy",
         "harden the consensus protocol with lattice-based encryption",
@@ -98,6 +99,131 @@ TECH_SPECIALTIES = {
         "implement write-ahead logging for the shared memory",
         "ensure ACID compliance for the consensus ledger",
         "defragment the archive for faster historical audit",
+    ],
+    # Sovereign's Skills - Web Scraping & Data
+    "WebScraping": [
+        "bypass anti-bot protection systems ethically and effectively",
+        "implement stealth browser automation with fingerprint randomization",
+        "design scrapers that run 90+ days without intervention",
+        "extract structured data from JavaScript-heavy dynamic sites",
+    ],
+    "DataMining": [
+        "discover hidden patterns in unstructured data sources",
+        "build intelligent data pipelines that clean and transform raw input",
+        "implement AI-powered entity matching across disparate datasets",
+        "aggregate multi-source intelligence into actionable insights",
+    ],
+    "DataExtraction": [
+        "parse complex nested data structures into clean exports",
+        "handle rate limiting and session management gracefully",
+        "implement respectful scraping that honors robots.txt",
+        "design adaptive extractors that survive site changes",
+    ],
+    "API_Integration": [
+        "orchestrate multi-API workflows for complex data aggregation",
+        "implement robust retry logic with exponential backoff",
+        "design API facades that abstract vendor-specific quirks",
+        "build real-time data sync between disparate systems",
+    ],
+    "Automation": [
+        "design set-it-and-forget-it workflows that self-heal",
+        "implement intelligent monitoring with proactive alerting",
+        "build scheduled pipelines that scale automatically",
+        "create no-code interfaces for non-technical operators",
+    ],
+    "BrowserAutomation": [
+        "implement Playwright and Puppeteer for JavaScript rendering",
+        "design Selenium workflows with anti-detection measures",
+        "handle complex authentication flows and session persistence",
+        "build visual regression testing for scraper reliability",
+    ],
+    # Sovereign's Skills - Cloud & Infrastructure
+    "GoogleCloudPlatform": [
+        "deploy serverless functions for cost-optimized workloads",
+        "implement Vertex AI for production ML inference",
+        "design BigQuery pipelines for petabyte-scale analysis",
+        "orchestrate Cloud Scheduler for reliable cron jobs",
+    ],
+    "AmazonWebServices": [
+        "build Lambda functions for event-driven automation",
+        "implement Bedrock for enterprise AI integration",
+        "design SageMaker pipelines for model training and deployment",
+        "orchestrate Step Functions for complex workflows",
+    ],
+    "CloudArchitecture": [
+        "design cost-optimized infrastructure that scales automatically",
+        "implement multi-region redundancy for high availability",
+        "build serverless architectures for rapid deployment",
+        "optimize cloud spend without sacrificing performance",
+    ],
+    "DevOps": [
+        "implement CI/CD pipelines for reliable deployments",
+        "containerize applications with Docker for portability",
+        "orchestrate Kubernetes clusters for production workloads",
+        "build infrastructure-as-code with Terraform",
+    ],
+    # Sovereign's Skills - AI & ML
+    "MachineLearning": [
+        "train models that generalize to production data",
+        "implement feature engineering for maximum signal",
+        "design evaluation frameworks that catch regressions",
+        "deploy models with proper monitoring and versioning",
+    ],
+    "NLP_Systems": [
+        "implement RAG architectures for knowledge-grounded responses",
+        "design prompt engineering strategies for consistent output",
+        "build multi-agent LLM workflows with CrewAI and LangChain",
+        "optimize token usage for cost-effective AI operations",
+    ],
+    "AI_Integration": [
+        "orchestrate Claude, GPT-4, and Gemini for best-fit tasks",
+        "implement intelligent routing between AI providers",
+        "design fallback chains for resilient AI operations",
+        "build AI-powered analysis that surfaces actionable insights",
+    ],
+    # Sovereign's Skills - Development
+    "Python": [
+        "write clean, maintainable code that others can extend",
+        "implement async patterns for high-concurrency workloads",
+        "design modular architectures with clear separation of concerns",
+        "optimize performance with profiling and targeted improvements",
+    ],
+    "WebSystems": [
+        "build RESTful APIs that are intuitive and well-documented",
+        "implement frontend interfaces that delight users",
+        "design microservices that communicate reliably",
+        "handle authentication and authorization securely",
+    ],
+    "SoftwareArchitecture": [
+        "design systems that are easy to understand and modify",
+        "implement patterns that prevent common failure modes",
+        "build for maintainability over premature optimization",
+        "document architectural decisions for future developers",
+    ],
+    # Sovereign's Skills - Specialized
+    "GovernmentSystems": [
+        "navigate SAM.gov and state procurement databases effectively",
+        "implement compliance-aware scraping that respects regulations",
+        "build security-focused architectures for sensitive data",
+        "design audit trails that satisfy government requirements",
+    ],
+    "CompetitiveIntelligence": [
+        "monitor competitor pricing and inventory in real-time",
+        "analyze market trends to surface opportunities",
+        "build dashboards that inform strategic decisions",
+        "implement alerts for significant market changes",
+    ],
+    "DataEngineering": [
+        "build ETL pipelines that handle messy real-world data",
+        "implement data quality checks at every stage",
+        "design data warehouses optimized for analytics",
+        "orchestrate Airflow DAGs for complex dependencies",
+    ],
+    "QualityEngineering": [
+        "implement test-driven development for reliability",
+        "design automated test suites that catch regressions",
+        "build monitoring that surfaces issues before users notice",
+        "create documentation that enables self-service",
     ],
 }
 

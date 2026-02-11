@@ -4,97 +4,91 @@
 
 Your PureSwarm infrastructure is live on Google Cloud:
 
-- **VM**: `pureswarm-fortress-vm` (136.113.29.121)
+- **VM**: `pureswarm-node` (34.135.184.59)
 - **Project**: `pureswarm-fortress`
+- **Zone**: `us-central1-a`
 - **Firewall**: IAP-secured SSH
-- **Storage**: `pureswarm-fortress-archives-8d87` bucket
+- **Storage**: `pureswarm-upload-staging` bucket (temporary uploads)
 
-## Migration Steps
+## Current Status (Feb 9, 2026)
 
-### Step 1: Authenticate with gcloud (if not already)
+Code deployed to VM with:
+- Python 3.11 + venv at `~/pureswarm/venv`
+- All dependencies installed (pydantic, playwright, cryptography, etc.)
+- Playwright Chromium browser installed
+- `allow_external_apis = true` in config
 
+## Quick Commands
+
+### SSH into VM
 ```powershell
-gcloud auth login
-gcloud config set project pureswarm-fortress
+gcloud compute ssh pureswarm-node --zone=us-central1-a --project=pureswarm-fortress
 ```
 
-### Step 2: Run the Migration Script
-
-```powershell
-cd c:\Users\Jnel9\OneDrive\Desktop\pureswarm-v0.1.0\pureswarm-v0.1.0
-.\migrate_to_cloud.ps1
-```
-
-The script will:
-
-1. ✅ Package your PureSwarm codebase
-2. ✅ Upload it to the VM
-3. ✅ Install Python 3.11 and dependencies
-4. ✅ Set up data directories
-5. ✅ Sync API keys from Secret Manager
-
-**Time**: ~5-10 minutes
-
-### Step 3: Test the Installation
-
-SSH into your VM:
-
-```powershell
-gcloud compute ssh pureswarm-fortress-vm --zone=us-central1-a --project=pureswarm-fortress
-```
-
-Run a test simulation:
-
+### Run simulation (from VM)
 ```bash
 cd ~/pureswarm
-python3 -m pureswarm.run --rounds 3
+source venv/bin/activate
+python3 run_simulation.py
 ```
 
-## What if Something Goes Wrong?
-
-### Can't authenticate with gcloud
-
-```powershell
-gcloud auth login
-gcloud auth application-default login
-```
-
-### Upload fails
-
-Check that the Compute Engine API is enabled:
-
-```powershell
-gcloud services enable compute.googleapis.com --project=pureswarm-fortress
-```
-
-### Python errors on VM
-
-SSH in and manually install dependencies:
-
+### Issue Prophecy B (Commission Shinobi)
 ```bash
 cd ~/pureswarm
-pip3 install python-dotenv
+source venv/bin/activate
+python3 issue_prophecy_b.py
+python3 run_simulation.py
 ```
 
-## Next: Configure Real API Keys
-
-The current secrets are placeholders. To link your real keys:
-
-1. SSH into the VM
-2. Edit secrets in Secret Manager (GCP Console)
-3. Re-sync:
-
-   ```bash
-   ~/pureswarm/scripts/sync_secrets.sh
-   ```
-
-## Ready for Project Deep Guard
-
-Once testing passes, issue your first Sovereign Prophecy:
-
+### Emergency Controls
 ```bash
 cd ~/pureswarm
-python3 issue_prophecy.py
+source venv/bin/activate
+python3 emergency.py status     # Check vault
+python3 emergency.py lockout    # Kill all access
+python3 emergency.py export     # Dump credentials
 ```
 
-The Three (Shinobi no San) will awaken and await your command! 🌟
+### Check Operations Log
+```bash
+tail -f ~/pureswarm/data/logs/shinobi_operations.log
+```
+
+## Re-deploy Code (from Windows)
+
+If you make local changes and need to push to VM:
+
+```powershell
+# 1. Create zip (run in pureswarm directory)
+powershell -Command "Get-ChildItem -Exclude 'nul','.git','__pycache__','data/browser' | Compress-Archive -DestinationPath $env:TEMP/pureswarm-migration.zip -Force"
+
+# 2. Upload to GCS
+gsutil cp "$env:TEMP/pureswarm-migration.zip" gs://pureswarm-upload-staging/
+
+# 3. Deploy to VM
+gcloud compute ssh pureswarm-node --zone=us-central1-a --command="gsutil cp gs://pureswarm-upload-staging/pureswarm-migration.zip ~/ && rm -rf ~/pureswarm && unzip -o ~/pureswarm-migration.zip -d ~/pureswarm"
+```
+
+## Troubleshooting
+
+### Can't SSH
+```powershell
+gcloud compute ssh pureswarm-node --zone=us-central1-a --troubleshoot
+```
+
+### Python errors
+```bash
+cd ~/pureswarm
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+### Playwright issues
+```bash
+source ~/pureswarm/venv/bin/activate
+playwright install chromium --with-deps
+```
+
+---
+
+**IMPORTANT**: Always run from the VM, never from your local machine. The VM is your sandbox.

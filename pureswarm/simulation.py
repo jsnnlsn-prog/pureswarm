@@ -19,6 +19,7 @@ from .security import AuditLogger, LobstertailScanner, SandboxChecker
 from .strategies.rule_based import RuleBasedStrategy
 from .prophecy import ProphecyEngine
 from .execution import ExecutionManager
+from .evolution import EvolutionLayer
 
 logger = logging.getLogger("pureswarm.simulation")
 
@@ -52,7 +53,7 @@ class Simulation:
         self._triad_ids: list[str] = []
         
         # Load Sovereign Key for Prophecy
-        self._sovereign_key = os.getenv("SOVEREIGN_SECRET", "SOVEREIGN_KEY_FALLBACK")
+        self._sovereign_key = os.getenv("PURES_SOVEREIGN_PASSPHRASE", "SOVEREIGN_KEY_FALLBACK")
         self._prophecy_engine = ProphecyEngine(self._sovereign_key)
 
         # Infrastructure
@@ -74,6 +75,10 @@ class Simulation:
 
         self._memory = SharedMemory(self._data_dir, self._audit, scanner=self._scanner)
         self._bus = MessageBus(scanner=self._scanner)
+
+        # Evolution Layer: Dopamine (shared joy), Fitness (natural selection), Reproduction (growth)
+        self._evolution = EvolutionLayer(self._bus, self._data_dir)
+
         self._consensus = ConsensusProtocol(
             shared_memory=self._memory,
             audit_logger=self._audit,
@@ -186,13 +191,35 @@ class Simulation:
         tenets = await self._memory.read_tenets()
 
         # Phase 8: Reward System (Gratification for community support)
+        # Now powered by the Evolution Layer - shared dopamine, reproduction, natural selection
         for tenet in adopted:
             # Trigger Execution
             await self._executor.execute_tenet(tenet)
-            
+
+            # EVOLUTION: Broadcast joy for every adopted tenet
+            # The whole hive feels the success
+            await self._evolution.dopamine.broadcast_joy(
+                source_agent=tenet.proposed_by,
+                mission_id=tenet.id,
+                intensity=1.2,
+                message=f"Tenet adopted: '{tenet.text[:50]}...' The hive grows stronger."
+            )
+
+            # Track fitness for the proposer
+            self._evolution.fitness.record_verified_success(tenet.proposed_by)
+
             # Check if this was a prophetic tenet from Shinobi no San
             if tenet.proposed_by in self._triad_ids and any(k in tenet.text for k in ["Prophecy", "Shinobi", "San", "Sovereign enlightens"]):
                 logger.info("THE ECHO REWARD: Community rewarded for aligning with Shinobi no San.")
+
+                # Extra dopamine boost for prophetic alignment
+                await self._evolution.dopamine.broadcast_joy(
+                    source_agent="sovereign",
+                    mission_id=tenet.id,
+                    intensity=2.0,
+                    message="The Sovereign's Enlightenment echoes through the hive. Maximum joy."
+                )
+
                 reward_msg = Message(
                     sender="system",
                     type=MessageType.REWARD,
@@ -234,6 +261,18 @@ class Simulation:
                 "  %2d. [%d for / %d against] %s",
                 i, tenet.votes_for, tenet.votes_against, tenet.text,
             )
+
+        # EVOLUTION: Log hive state
+        hive_state = self._evolution.get_hive_state()
+        logger.info("\n--- Hive Evolution State ---")
+        logger.info("  Momentum: %.2f", hive_state["momentum"])
+        logger.info("  Top Performers:")
+        for performer in hive_state["top_performers"][:3]:
+            logger.info("    - %s: fitness=%.2f, successes=%d",
+                       performer["agent_id"], performer["fitness_score"],
+                       performer["verified_successes"])
+        if hive_state["retirement_candidates"]:
+            logger.info("  Retirement Candidates: %s", hive_state["retirement_candidates"])
         logger.info("--- End ---\n")
 
     async def _initialize_pillars(self) -> None:
@@ -309,12 +348,22 @@ class Simulation:
                 logger.info("The Echo Reward: Swarm faithfulness rewarded with 2 new citizens.")
                 await self._spawn_citizens(2, "Echo Reward")
 
-    async def _spawn_citizens(self, count: int, reason: str) -> None:
-        """Instantiate and integrate new elite agents into the simulation."""
+    async def _spawn_citizens(self, count: int, reason: str, parent_agent: str = None) -> None:
+        """Instantiate and integrate new elite agents into the simulation.
+
+        When parent_agent is provided, the new agent inherits traits from the parent
+        through the Evolution Layer's fitness system.
+        """
         for _ in range(count):
             agent_id = str(uuid.uuid4())[:8]
             identity = AgentIdentity(id=agent_id, name=f"Resident-{agent_id}")
             strategy = RuleBasedStrategy()
+
+            # Inherit traits from parent if specified
+            if parent_agent:
+                traits = self._evolution.fitness.inherit_traits(parent_agent, agent_id)
+                logger.info("New agent %s inherits traits from %s: %s", agent_id, parent_agent, traits)
+
             agent = Agent(
                 identity=identity,
                 strategy=strategy,
@@ -326,10 +375,22 @@ class Simulation:
                 scanner=self._scanner,
             )
             self._agents.append(agent)
+            self._bus.subscribe(agent.id)
+
+            # Update evolution layer's count
+            self._evolution.reproduction.set_current_count(len(self._agents))
+
             await self._audit.log(
                 AuditEntry(
                     agent_id="system_demographics",
                     action="agent_spawned",
                     details={"agent_id": agent_id, "reason": reason, "total_residents": len(self._agents)}
                 )
+            )
+
+            # EVOLUTION: Broadcast birth joy to the hive
+            await self._evolution.dopamine.broadcast_birth(
+                new_agent_id=agent_id,
+                parent_agent=parent_agent or "hive",
+                traits={"reason": reason}
             )

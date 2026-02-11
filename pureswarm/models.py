@@ -34,6 +34,7 @@ class MessageType(str, Enum):
     OBSERVATION = "observation"
     REFLECTION = "reflection"
     REWARD = "reward"
+    DOPAMINE = "dopamine"
 
 
 class ProposalStatus(str, Enum):
