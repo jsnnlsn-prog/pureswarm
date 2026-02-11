@@ -49,6 +49,14 @@ class AgentRole(str, Enum):
     TRIAD_MEMBER = "triad_member"
 
 
+class ChronicleCategory(str, Enum):
+    GROWTH = "growth"
+    PROPHECY = "prophecy"
+    CONSENSUS = "consensus"
+    MILESTONE = "milestone"
+    SPECIALTY = "specialty"
+
+
 # ---------------------------------------------------------------------------
 # Identity
 # ---------------------------------------------------------------------------
@@ -124,6 +132,24 @@ class AuditEntry(BaseModel):
     agent_id: str
     action: str
     details: dict[str, Any] = Field(default_factory=dict)
+
+
+# ---------------------------------------------------------------------------
+# Chronicle (community history)
+# ---------------------------------------------------------------------------
+
+class ChronicleEvent(BaseModel):
+    """A historical event in the community's collective memory.
+
+    Chronicle events provide context for agent reasoning, allowing them
+    to understand the community's evolution and make historically-informed
+    decisions.
+    """
+    round_number: int
+    category: ChronicleCategory
+    text: str
+    timestamp: datetime = Field(default_factory=_now)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------

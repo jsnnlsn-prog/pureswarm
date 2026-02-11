@@ -11,10 +11,11 @@ from pathlib import Path
 from typing import Optional, List
 
 from .agent import Agent
+from .chronicle import Chronicle
 from .consensus import ConsensusProtocol
 from .memory import SharedMemory, CONSENSUS_GUARD
 from .message_bus import MessageBus
-from .models import AgentIdentity, RoundSummary, SimulationReport, Tenet, ProposalStatus, AgentRole, Message, MessageType, AuditEntry
+from .models import AgentIdentity, RoundSummary, SimulationReport, Tenet, ProposalStatus, AgentRole, Message, MessageType, AuditEntry, ChronicleCategory
 from .security import AuditLogger, LobstertailScanner, SandboxChecker
 from .strategies.rule_based import RuleBasedStrategy
 from .prophecy import ProphecyEngine
@@ -74,6 +75,7 @@ class Simulation:
              raise ValueError("Seed prompt blocked by Lobstertail Security.")
 
         self._memory = SharedMemory(self._data_dir, self._audit, scanner=self._scanner)
+        self._chronicle = Chronicle(self._data_dir)
         self._bus = MessageBus(scanner=self._scanner)
 
         # Evolution Layer: Dopamine (shared joy), Fitness (natural selection), Reproduction (growth)
@@ -229,6 +231,7 @@ class Simulation:
         )
 
         await self._memory.reset()
+        await self._chronicle.reset()
         self._consensus.reset()
 
         # Initialize Sovereign Pillars (Requirement #8)
@@ -263,7 +266,17 @@ class Simulation:
                     sig, content = raw.split(":", 1)
                     if self._prophecy_engine.verify_and_capture(content, sig):
                         logger.info("Prophecy Engine: Divine Enlightenment captured for Round %d", round_num)
-                        # Optional: Clear file after ingestion? 
+
+                        # Chronicle: Record prophecy reception
+                        preview = content[:100] + "..." if len(content) > 100 else content
+                        await self._chronicle.record_event(
+                            category=ChronicleCategory.PROPHECY,
+                            text=f"Shinobi Triad received divine guidance: {preview}",
+                            round_number=round_num,
+                            metadata={"content_length": len(content), "full_content": content}
+                        )
+
+                        # Optional: Clear file after ingestion?
                         # User might want it to persist for some rounds, but usually it's a one-time trigger.
                         prophecy_file.write_text("", encoding="utf-8")
             except Exception as e:
@@ -323,6 +336,60 @@ class Simulation:
                     }
                 )
                 await self._bus.broadcast(reward_msg)
+
+        # Chronicle: Record tenet milestone achievements
+        total_tenet_count = len(tenets)
+        milestones = [10, 25, 50, 75, 100]
+        if total_tenet_count in milestones:
+            await self._chronicle.record_event(
+                category=ChronicleCategory.MILESTONE,
+                text=f"{total_tenet_count} total tenets achieved — Belief system {"maturing" if total_tenet_count < 50 else "mature"}",
+                round_number=round_num,
+                metadata={"total_tenets": total_tenet_count},
+                is_milestone=True
+            )
+
+        # Chronicle: Record high consensus momentum
+        if len(tenets) >= 5:
+            recent_tenets = tenets[-5:]
+            consensus_scores = [
+                t.votes_for / (t.votes_for + t.votes_against + 1e-9)
+                for t in recent_tenets
+            ]
+            avg_consensus = sum(consensus_scores) / len(consensus_scores)
+
+            if avg_consensus >= 0.85:
+                await self._chronicle.record_event(
+                    category=ChronicleCategory.CONSENSUS,
+                    text=f"High momentum: Last 5 tenets averaged {avg_consensus:.2f} consensus (exceptional unity)",
+                    round_number=round_num,
+                    metadata={
+                        "avg_consensus": avg_consensus,
+                        "window_size": 5,
+                        "threshold": 0.85
+                    }
+                )
+
+        # Chronicle: Record full democratic participation
+        if len(adopted) > 0:
+            # Check if all agents participated this round
+            participating_agents = set()
+            for proposal in self._consensus.pending_proposals():
+                participating_agents.update(proposal.votes.keys())
+
+            participation_rate = len(participating_agents) / len(self._agents) if self._agents else 0
+
+            if participation_rate >= 0.9:  # 90%+ participation
+                await self._chronicle.record_event(
+                    category=ChronicleCategory.CONSENSUS,
+                    text=f"Democratic participation: {len(participating_agents)}/{len(self._agents)} agents voted ({participation_rate:.1%})",
+                    round_number=round_num,
+                    metadata={
+                        "participating_agents": len(participating_agents),
+                        "total_agents": len(self._agents),
+                        "participation_rate": participation_rate
+                    }
+                )
 
         return RoundSummary(
             round_number=round_num,
@@ -403,6 +470,15 @@ class Simulation:
              await self._memory.write_tenet(tenet, _auth=CONSENSUS_GUARD)
         logger.info("Sovereign Pillars established: The Swarm has Purpose.")
 
+        # Chronicle: Record foundational milestone
+        await self._chronicle.record_event(
+            category=ChronicleCategory.MILESTONE,
+            text="Sovereign Pillars established — The Swarm has Purpose",
+            round_number=0,
+            metadata={"pillars_count": len(pillars)},
+            is_milestone=True
+        )
+
     async def _check_growth_triggers(self, round_num: int) -> None:
         """Evaluate societal and sovereign conditions for demographic expansion."""
         # 1. Sovereign Mandate (GOD Mode spawn)
@@ -416,7 +492,7 @@ class Simulation:
                         _, cmd = content.split(":", 1)
                         count = int(cmd.split(":")[1])
                         logger.info("Sovereign Mandate detected: Spawning %d new citizens.", count)
-                        await self._spawn_citizens(count, "Sovereign Request")
+                        await self._spawn_citizens(count, "Sovereign Request", round_num=round_num)
                         # Clear intuition to prevent double-spawn
                         intuition_path.write_text("", encoding="utf-8")
                     except (ValueError, IndexError):
@@ -438,7 +514,7 @@ class Simulation:
                 self._merit_spawn_milestone = high_consensus_count
                 spawn_count = random.randint(1, 5)
                 logger.info("Merit Growth Triggered: Consensus excellence attracts %d new citizens.", spawn_count)
-                await self._spawn_citizens(spawn_count, "Merit Emergence")
+                await self._spawn_citizens(spawn_count, "Merit Emergence", round_num=round_num)
 
         # 3. Echo Reward (Exact Pillar alignment)
         pillars = [
@@ -451,14 +527,16 @@ class Simulation:
         for tenet in recent_tenets:
             if tenet.text in pillars:
                 logger.info("The Echo Reward: Swarm faithfulness rewarded with 2 new citizens.")
-                await self._spawn_citizens(2, "Echo Reward")
+                await self._spawn_citizens(2, "Echo Reward", round_num=round_num)
 
-    async def _spawn_citizens(self, count: int, reason: str, parent_agent: str = None) -> None:
+    async def _spawn_citizens(self, count: int, reason: str, parent_agent: str = None, round_num: int = 0) -> None:
         """Instantiate and integrate new elite agents into the simulation.
 
         When parent_agent is provided, the new agent inherits traits from the parent
         through the Evolution Layer's fitness system.
         """
+        previous_count = len(self._agents)
+
         for _ in range(count):
             agent_id = str(uuid.uuid4())[:8]
             identity = AgentIdentity(id=agent_id, name=f"Resident-{agent_id}")
@@ -499,3 +577,18 @@ class Simulation:
                 parent_agent=parent_agent or "hive",
                 traits={"reason": reason}
             )
+
+        # Chronicle: Record population growth
+        new_count = len(self._agents)
+        await self._chronicle.record_event(
+            category=ChronicleCategory.GROWTH,
+            text=f"Community grew from {previous_count} to {new_count} agents ({reason})",
+            round_number=round_num,
+            metadata={
+                "previous_count": previous_count,
+                "new_count": new_count,
+                "spawn_count": count,
+                "trigger": reason,
+                "parent": parent_agent
+            }
+        )
