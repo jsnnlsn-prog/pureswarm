@@ -341,9 +341,10 @@ class Simulation:
         total_tenet_count = len(tenets)
         milestones = [10, 25, 50, 75, 100]
         if total_tenet_count in milestones:
+            maturity = "maturing" if total_tenet_count < 50 else "mature"
             await self._chronicle.record_event(
                 category=ChronicleCategory.MILESTONE,
-                text=f"{total_tenet_count} total tenets achieved — Belief system {"maturing" if total_tenet_count < 50 else "mature"}",
+                text=f"{total_tenet_count} total tenets achieved — Belief system {maturity}",
                 round_number=round_num,
                 metadata={"total_tenets": total_tenet_count},
                 is_milestone=True
