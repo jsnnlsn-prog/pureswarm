@@ -7,6 +7,10 @@ Usage:
     python -m pureswarm.bridge_http --port 8080
 
 OpenClaw can then call this as an external API endpoint.
+
+The bridge now supports real deliberation:
+- Special queries (who are you, tenets, etc.) use optimized static responses
+- General queries trigger swarm deliberation via Redis pub/sub
 """
 
 from __future__ import annotations
@@ -19,21 +23,52 @@ from typing import Any
 
 import redis.asyncio as redis
 
+from .deliberation import DeliberationService, QUERIES_PENDING, QUERIES_RESULTS
+from .models import QueryDeliberation
+
 logger = logging.getLogger("pureswarm.bridge_http")
 
 
 class SwarmQueryHandler:
-    """Handles queries to the swarm via Redis."""
+    """Handles queries to the swarm via Redis.
 
-    def __init__(self, redis_url: str = "redis://:[REDACTED_REDIS_PASSWORD]@localhost:6379/0") -> None:
+    Supports two query modes:
+    1. Fast path: Special queries (identity, tenets, help) use optimized static responses
+    2. Deliberation path: General queries trigger real swarm deliberation
+    """
+
+    def __init__(
+        self,
+        redis_url: str = "redis://:[REDACTED_REDIS_PASSWORD]@localhost:6379/0",
+        enable_deliberation: bool = True,
+        deliberation_timeout: float = 10.0,
+    ) -> None:
         self.redis_url = redis_url
         self._redis: redis.Redis | None = None
+        self._enable_deliberation = enable_deliberation
+        self._deliberation_timeout = deliberation_timeout
+        self._deliberation: DeliberationService | None = None
 
     async def connect(self) -> None:
-        """Connect to Redis."""
+        """Connect to Redis and initialize deliberation service."""
         self._redis = redis.from_url(self.redis_url, decode_responses=True)
         await self._redis.ping()
         logger.info("SwarmQueryHandler connected to Redis")
+
+        # Initialize deliberation service if enabled
+        if self._enable_deliberation:
+            from .memory import RedisMemory
+            from .security import AuditLogger
+            from pathlib import Path
+
+            audit = AuditLogger(Path("data/logs"))
+            memory = RedisMemory(self._redis, audit)
+            self._deliberation = DeliberationService(
+                redis_client=self._redis,
+                memory=memory,
+                timeout_seconds=self._deliberation_timeout,
+            )
+            logger.info("Deliberation service initialized (timeout: %.1fs)", self._deliberation_timeout)
 
     async def disconnect(self) -> None:
         """Disconnect from Redis."""
@@ -83,32 +118,72 @@ class SwarmQueryHandler:
         tenets: dict[str, str],
         agent_count: int,
         sender: str,
+        channel: str = "http",
     ) -> str:
-        """Generate response based on the question and swarm state."""
+        """Generate response based on the question and swarm state.
+
+        Fast path queries (identity, tenets, help) use static responses.
+        General queries trigger real swarm deliberation if enabled.
+        """
         q = question.lower()
 
-        # Identity questions
+        # Fast path: Identity questions
         if any(word in q for word in ["who are you", "what are you", "introduce", "about you"]):
             return self._intro_response(len(tenets), agent_count)
 
-        # Tenet questions
+        # Fast path: Tenet questions
         if any(word in q for word in ["tenet", "belief", "principle", "values"]):
             return self._tenets_response(tenets)
 
-        # Help
+        # Fast path: Help
         if any(word in q for word in ["help", "command", "what can"]):
             return self._help_response()
 
-        # Workshop/problem questions
+        # Fast path: Workshop/problem questions
         if any(word in q for word in ["workshop", "problem", "climate", "healthcare"]):
             return self._workshop_response()
 
-        # Chronicle questions
+        # Fast path: Chronicle questions
         if any(word in q for word in ["chronicle", "history", "event"]):
             return self._chronicle_response()
 
-        # Default
+        # Deliberation path: General queries
+        if self._enable_deliberation and self._deliberation:
+            return await self._deliberate_query(question, sender, channel, len(tenets))
+
+        # Fallback: Static default response
         return self._default_response(question, len(tenets), sender)
+
+    async def _deliberate_query(
+        self,
+        question: str,
+        sender: str,
+        channel: str,
+        tenet_count: int,
+    ) -> str:
+        """Submit query for swarm deliberation."""
+        if not self._deliberation:
+            return self._default_response(question, tenet_count, sender)
+
+        try:
+            # Create query object
+            query = QueryDeliberation(
+                query_text=question,
+                sender=sender,
+                channel=channel,
+            )
+
+            logger.info("Submitting query %s for deliberation", query.id)
+
+            # Submit and wait for response
+            response = await self._deliberation.submit_query(query)
+
+            logger.info("Query %s deliberation complete", query.id)
+            return response
+
+        except Exception as e:
+            logger.error("Deliberation failed for query: %s", e)
+            return self._default_response(question, tenet_count, sender)
 
     def _intro_response(self, tenet_count: int, agent_count: int) -> str:
         return f"""I am PureSwarm - a collective intelligence of {agent_count} autonomous agents.
@@ -215,15 +290,29 @@ async def run_http_bridge(
     host: str = "127.0.0.1",
     port: int = 8080,
     redis_url: str = "redis://:[REDACTED_REDIS_PASSWORD]@localhost:6379/0",
+    enable_deliberation: bool = True,
+    deliberation_timeout: float = 10.0,
 ) -> None:
-    """Run the HTTP bridge server."""
+    """Run the HTTP bridge server.
+
+    Args:
+        host: Host to bind to
+        port: Port to listen on
+        redis_url: Redis connection URL
+        enable_deliberation: Whether to enable real swarm deliberation
+        deliberation_timeout: Timeout for deliberation in seconds
+    """
     try:
         from aiohttp import web
     except ImportError:
         logger.error("aiohttp required: pip install aiohttp")
         return
 
-    handler = SwarmQueryHandler(redis_url)
+    handler = SwarmQueryHandler(
+        redis_url=redis_url,
+        enable_deliberation=enable_deliberation,
+        deliberation_timeout=deliberation_timeout,
+    )
     await handler.connect()
 
     async def query_endpoint(request: web.Request) -> web.Response:
@@ -274,21 +363,56 @@ async def run_http_bridge(
 
 if __name__ == "__main__":
     import argparse
+    import os
 
     parser = argparse.ArgumentParser(description="PureSwarm HTTP Bridge")
     parser.add_argument("--host", default="127.0.0.1", help="Host to bind")
     parser.add_argument("--port", type=int, default=8080, help="Port to listen on")
     parser.add_argument(
         "--redis-url",
-        default="redis://:[REDACTED_REDIS_PASSWORD]@localhost:6379/0",
+        default=os.environ.get("REDIS_URL", "redis://:[REDACTED_REDIS_PASSWORD]@localhost:6379/0"),
         help="Redis URL",
+    )
+    parser.add_argument(
+        "--enable-deliberation",
+        action="store_true",
+        default=os.environ.get("ENABLE_DELIBERATION", "true").lower() == "true",
+        help="Enable real swarm deliberation (default: true)",
+    )
+    parser.add_argument(
+        "--no-deliberation",
+        action="store_true",
+        help="Disable real swarm deliberation (use static responses only)",
+    )
+    parser.add_argument(
+        "--deliberation-timeout",
+        type=float,
+        default=float(os.environ.get("DELIBERATION_TIMEOUT", "10.0")),
+        help="Timeout for deliberation in seconds (default: 10.0)",
+    )
+    parser.add_argument(
+        "--log-level",
+        default=os.environ.get("LOG_LEVEL", "INFO"),
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help="Logging level",
     )
 
     args = parser.parse_args()
 
+    # Handle --no-deliberation flag
+    enable_deliberation = args.enable_deliberation and not args.no_deliberation
+
     logging.basicConfig(
-        level=logging.INFO,
+        level=getattr(logging, args.log_level),
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
 
-    asyncio.run(run_http_bridge(args.host, args.port, args.redis_url))
+    logger.info("Starting HTTP Bridge with deliberation=%s", enable_deliberation)
+
+    asyncio.run(run_http_bridge(
+        host=args.host,
+        port=args.port,
+        redis_url=args.redis_url,
+        enable_deliberation=enable_deliberation,
+        deliberation_timeout=args.deliberation_timeout,
+    ))

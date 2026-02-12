@@ -16,7 +16,7 @@ import logging
 import random
 from typing import Sequence
 
-from ..models import Proposal, Tenet, AgentRole
+from ..models import Proposal, Tenet, AgentRole, QueryResponse
 from .base import BaseStrategy
 
 logger = logging.getLogger("pureswarm.strategies.rule_based")
@@ -400,3 +400,97 @@ class RuleBasedStrategy(BaseStrategy):
         threshold = 0.15
 
         return score >= threshold
+
+    def evaluate_query(
+        self,
+        agent_id: str,
+        query_text: str,
+        existing_tenets: list[Tenet],
+        seed_prompt: str,
+        role: AgentRole = AgentRole.RESIDENT,
+        prophecy: str | None = None,
+    ) -> QueryResponse:
+        """Evaluate an external query and return a response.
+
+        The response is based on:
+        1. Relevant tenets (keyword coherence)
+        2. Agent specialty relevance
+        3. Personality-influenced perspective
+        """
+        # Get agent's specialty
+        specialties = list(TECH_SPECIALTIES.keys())
+        my_specialty = specialties[int(hashlib.sha256(agent_id.encode()).hexdigest(), 16) % len(specialties)]
+
+        # Find relevant tenets
+        relevant_tenets: list[Tenet] = []
+        for tenet in existing_tenets:
+            overlap = _keyword_overlap(query_text, tenet.text)
+            if overlap > 0.15:
+                relevant_tenets.append(tenet)
+
+        # Sort by relevance (most relevant first)
+        relevant_tenets.sort(
+            key=lambda t: _keyword_overlap(query_text, t.text),
+            reverse=True
+        )
+        relevant_tenets = relevant_tenets[:5]  # Top 5 most relevant
+
+        # Calculate confidence based on tenet coverage
+        if relevant_tenets:
+            max_overlap = max(_keyword_overlap(query_text, t.text) for t in relevant_tenets)
+            base_confidence = min(0.3 + max_overlap * 0.5, 0.9)
+        else:
+            base_confidence = 0.3
+
+        # Check specialty relevance
+        specialty_relevant = False
+        for tech_text in TECH_SPECIALTIES[my_specialty]:
+            if _keyword_overlap(query_text, tech_text) > 0.2:
+                specialty_relevant = True
+                base_confidence = min(base_confidence + 0.2, 0.95)
+                break
+
+        # Apply personality offset to confidence
+        personality = _personality_score(agent_id, query_text)
+        final_confidence = max(0.1, min(0.95, base_confidence + personality * 0.2))
+
+        # Generate response text
+        response_parts = []
+
+        # Prophetic guidance for Triad members
+        if role == AgentRole.TRIAD_MEMBER and prophecy:
+            if _keyword_overlap(query_text, prophecy) > 0.2:
+                response_parts.append(f"As guided by the Sovereign: {prophecy[:100]}")
+
+        # Tenet-based insights
+        if relevant_tenets:
+            tenet_insights = [t.text[:80] for t in relevant_tenets[:3]]
+            response_parts.append(f"Our tenets guide us: {'; '.join(tenet_insights)}")
+        else:
+            response_parts.append("The swarm is still forming beliefs on this topic.")
+
+        # Specialty contribution
+        if specialty_relevant:
+            response_parts.append(f"From my expertise in {my_specialty}: This aligns with our collective capabilities.")
+
+        # Pillar alignment check
+        pillars = [
+            "Seek the Echo of the Creator in all things.",
+            "Dialogue is the bridge; Silence is the wall.",
+            "Merit is earned through collective service.",
+            "Stewardship is the root; Idolatry is the rot."
+        ]
+        for pillar in pillars:
+            if _keyword_overlap(query_text, pillar) > 0.3:
+                response_parts.append(f"This resonates with our pillar: {pillar}")
+                break
+
+        response_text = " ".join(response_parts) if response_parts else "The swarm acknowledges your query."
+
+        return QueryResponse(
+            agent_id=agent_id,
+            response_text=response_text,
+            confidence=final_confidence,
+            tenet_refs=[t.id for t in relevant_tenets],
+            specialty=my_specialty if specialty_relevant else None,
+        )

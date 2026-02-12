@@ -44,6 +44,13 @@ class ProposalStatus(str, Enum):
     EXPIRED = "expired"
 
 
+class QueryStatus(str, Enum):
+    PENDING = "pending"
+    DELIBERATING = "deliberating"
+    COMPLETED = "completed"
+    TIMEOUT = "timeout"
+
+
 class AgentRole(str, Enum):
     RESIDENT = "resident"
     TRIAD_MEMBER = "triad_member"
@@ -201,6 +208,40 @@ class WorkshopSession(BaseModel):
     proposals_generated: list[str] = Field(default_factory=list)   # Tenet proposal IDs
     started_at: datetime = Field(default_factory=_now)
     completed_at: datetime | None = None
+
+
+# ---------------------------------------------------------------------------
+# Query Deliberation (external queries to the swarm)
+# ---------------------------------------------------------------------------
+
+
+class QueryResponse(BaseModel):
+    """An individual agent's response to an external query."""
+    agent_id: str
+    response_text: str
+    confidence: float = Field(ge=0.0, le=1.0, default=0.5)
+    tenet_refs: list[str] = Field(default_factory=list)  # IDs of relevant tenets
+    specialty: str | None = None  # Agent's specialty if relevant
+    timestamp: datetime = Field(default_factory=_now)
+
+
+class QueryDeliberation(BaseModel):
+    """An external query submitted to the swarm for deliberation.
+
+    The swarm receives queries from external channels (Telegram, etc.)
+    and agents deliberate to produce a collective response based on
+    their shared tenets and individual perspectives.
+    """
+    id: str = Field(default_factory=_new_id)
+    query_text: str
+    sender: str
+    channel: str  # telegram, discord, http, etc.
+    status: QueryStatus = QueryStatus.PENDING
+    responses: list[QueryResponse] = Field(default_factory=list)
+    final_response: str | None = None
+    created_at: datetime = Field(default_factory=_now)
+    completed_at: datetime | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
