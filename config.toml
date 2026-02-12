@@ -13,6 +13,16 @@ allow_external_apis = true
 data_directory = "data"
 enable_audit_log = true
 
+# Memory backend: "file" (default) or "redis"
+[memory]
+backend = "file"
+
+[memory.redis]
+# Redis/Dynomite connection settings (used when backend = "redis")
+url = "redis://localhost:6379"
+password = "[REDACTED_REDIS_PASSWORD]"  # Change in production!
+db = 0
+
 [agent]
 max_proposals_per_round = 1
 max_votes_per_round = 5
