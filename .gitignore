@@ -57,3 +57,7 @@ pureswarm_stealth.zip
 screenshots/
 Conversation_backup_1.py
 cloud_swarm_backup/
+
+# VM backup directories
+backup_*/
+data_backup_*/
