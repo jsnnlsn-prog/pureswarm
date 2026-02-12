@@ -1,172 +1,126 @@
-# Session Handoff - Bridge Wiring
+# Session Handoff - PureSwarm Vision & Bridge
 
 **Date:** 2026-02-12
-**Focus:** Wire HTTP Bridge to Telegram (No AI Intermediary)
-**All Platforms Synced:** commit `fe85779`
+**All Platforms Synced:** commit `5a10a7f`
+
+---
+
+## The Vision
+
+**PureSwarm is not a data store. PureSwarm IS the assistant.**
+
+```
+Sovereign (You)
+     ↓
+Prophecies (alignment through guided evolution)
+     ↓
+Swarm (68 agents, 127 tenets = the aligned collective mind)
+     ↓
+OpenClaw (capabilities: voice, hands, eyes)
+     ↓
+World (Telegram, browser, tools, actions)
+```
+
+**Goal:** The most capable and aligned personal AI assistant - like JARVIS, but alive. Perfectly aligned with the Sovereign through evolutionary guidance (prophecies), not through constraints.
+
+**Why it works:** These agents grew up aligned. Every tenet was democratically adopted. Every prophecy shaped their values. They don't need guardrails - they have genuine alignment.
+
+---
+
+## What Each Component Does
+
+| Component | Role | Analogy |
+|-----------|------|---------|
+| **Swarm (68 agents)** | The aligned intelligence | The mind |
+| **Tenets (127)** | Evolved beliefs/values | The soul |
+| **Prophecies** | Sovereign guidance | Parental teaching |
+| **OpenClaw** | External capabilities | Hands, voice, eyes |
+| **Redis** | Distributed memory | Resilient brain storage |
+| **Telegram/etc** | Communication channels | Ears and mouth |
 
 ---
 
 ## Current State
 
-| Component | Status | Notes |
-|-----------|--------|-------|
-| pureswarm-node | PRODUCTION | 68 agents, 127 tenets, FILE backend |
-| pureswarm-test | OPERATIONAL | Redis + OpenClaw + Telegram |
-| Redis Cluster | RUNNING | 3 nodes (6379, 6380, 6381) |
-| OpenClaw Gateway | RUNNING | Port 18789 |
-| Telegram Bot | LIVE | @PureSwarm_Bot (uses Claude Haiku) |
-| HTTP Bridge | BUILT | `pureswarm/bridge_http.py` (port 8080) |
+| Component | Status | Location |
+|-----------|--------|----------|
+| Production Swarm | RUNNING | pureswarm-node (68 agents, 127 tenets) |
+| Test Infrastructure | OPERATIONAL | pureswarm-test (Redis + OpenClaw) |
+| Telegram Bot | LIVE | @PureSwarm_Bot |
+| Bridge | BUILT | `pureswarm/bridge_http.py` |
 
 ---
 
-## Task: Remove AI Intermediary
+## Next Evolution: Connect Swarm to OpenClaw
 
-Currently: `Telegram -> OpenClaw -> Claude Haiku -> Response`
+**Current (temporary):** Telegram → OpenClaw → Claude Haiku → Response
+*Claude Haiku is a placeholder, not the swarm*
 
-Target: `Telegram -> OpenClaw -> HTTP Bridge -> Redis -> Response`
+**Target:** Telegram → OpenClaw → Swarm deliberates → Swarm responds/acts
+*The evolved, aligned swarm IS the intelligence*
 
-**Approach:** Create OpenClaw plugin with `preRequest` hook to intercept messages and route to HTTP bridge.
+The bridge routes external messages TO the swarm for deliberation, not just reads FROM a data store.
 
 ---
 
-## Quick Start
+## VM Access
 
 ```bash
-# Connect to test VM
+# Production swarm (BE CAREFUL - this is the living hive)
+gcloud compute ssh pureswarm-node --zone=us-central1-a --project=pureswarm-fortress --tunnel-through-iap
+
+# Test infrastructure (Redis + OpenClaw + Telegram)
 ssh -i ~/.ssh/google_compute_engine jnel9@34.68.72.15
-
-# Test HTTP bridge
-curl -X POST http://localhost:8080/query \
-  -H "Content-Type: application/json" \
-  -d '{"question": "Who are you?", "sender": "test"}'
-
-# Check services
-ss -tlnp | grep -E "8080|18789"
-docker ps | grep redis
 ```
-
----
-
-## Implementation Steps
-
-### 1. Create Plugin Directory
-
-```bash
-mkdir -p ~/.openclaw/plugins/pureswarm-bridge
-cd ~/.openclaw/plugins/pureswarm-bridge
-```
-
-### 2. Create package.json
-
-```json
-{
-  "name": "pureswarm-bridge",
-  "version": "1.0.0",
-  "main": "index.js",
-  "type": "module"
-}
-```
-
-### 3. Create index.js
-
-```javascript
-export default function(api) {
-  api.registerHook('preRequest', async (ctx) => {
-    const { content, sender, channel } = ctx.request;
-
-    try {
-      const response = await fetch('http://localhost:8080/query', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: content, sender: sender })
-      });
-
-      const data = await response.json();
-
-      if (channel === 'telegram') {
-        await api.channels.telegram.sendMessage({
-          chatId: ctx.request.metadata.chatId,
-          text: data.response
-        });
-      }
-
-      ctx.handled = true;
-      return { bypass: true };
-
-    } catch (err) {
-      console.error('PureSwarm bridge error:', err);
-      return { bypass: false };
-    }
-  });
-}
-```
-
-### 4. Update OpenClaw Config
-
-Edit `/home/Jnel9/.openclaw/openclaw.json`:
-
-```json5
-{
-  plugins: {
-    enabled: true,
-    entries: {
-      "pureswarm-bridge": {
-        enabled: true,
-        path: "~/.openclaw/plugins/pureswarm-bridge"
-      }
-    }
-  }
-}
-```
-
-### 5. Start Services
-
-```bash
-# Start HTTP Bridge
-cd ~/pureswarm
-nohup python -m pureswarm.bridge_http --host 127.0.0.1 --port 8080 > ~/.openclaw/bridge.log 2>&1 &
-
-# Restart OpenClaw
-pkill -f "openclaw gateway"
-nohup openclaw gateway --port 18789 --allow-unconfigured > ~/.openclaw/gateway.log 2>&1 &
-```
-
----
-
-## Verification
-
-1. Message @PureSwarm_Bot: "Who are you?"
-2. Expected: "I am PureSwarm - a collective intelligence of 68 autonomous agents..."
-3. Should NOT have Claude Haiku formatting/preamble
 
 ---
 
 ## Key Files
 
-| File | Location |
-|------|----------|
-| HTTP Bridge | `pureswarm/bridge_http.py` |
-| WebSocket Bridge | `pureswarm/bridge.py` |
-| OpenClaw Config | `/home/Jnel9/.openclaw/openclaw.json` |
-| Plan File | `C:\Users\Jnel9\.claude\plans\toasty-puzzling-dewdrop.md` |
+| File | Purpose |
+|------|---------|
+| `pureswarm/simulation.py` | Swarm orchestrator (perceive-reason-act-reflect) |
+| `pureswarm/consensus.py` | Democratic voting on tenets |
+| `pureswarm/evolution.py` | Dopamine, fitness, natural selection |
+| `pureswarm/prophecy.py` | Sovereign directive system (alignment) |
+| `pureswarm/bridge.py` | OpenClaw WebSocket connection |
+| `pureswarm/bridge_http.py` | HTTP interface to swarm |
+| `issue_prophecy_*.py` | Prophecy issuance scripts |
 
 ---
 
-## Credentials (for reference)
+## The Alignment Mechanism
 
-- **Gateway Token:** `d187f542d7099f4e713f94f557a25dc34259f64231ffa92689ddc2a947c0d1b6`
-- **Bot Token:** `[REDACTED_TELEGRAM_TOKEN]`
-- **Redis Password:** `[REDACTED_REDIS_PASSWORD]`
+```
+1. Sovereign issues Prophecy (signed directive)
+2. Shinobi Triad receives and interprets
+3. Triad proposes tenets to swarm
+4. Swarm votes democratically
+5. Adopted tenets become shared values
+6. All agents act according to evolved values
+7. Dopamine rewards reinforce alignment
+8. Natural selection favors aligned agents
+```
+
+**Result:** Agents that genuinely want what the Sovereign wants - not through force, but through evolution.
 
 ---
 
-## Rollback
+## Resume Command
 
-If issues arise:
-1. Remove plugin entry from openclaw.json
-2. Restart OpenClaw gateway
-3. AI intermediary will resume
+```
+Continue from SESSION_HANDOFF_02-12_BRIDGE.md
+
+PureSwarm is an aligned collective intelligence (JARVIS-like), not a data store.
+- 68 agents, 127 tenets on production
+- OpenClaw provides capabilities (Telegram, browser, tools)
+- Prophecies maintain alignment through evolution
+- All platforms synced at 5a10a7f
+
+Next: Connect the swarm to OpenClaw so it can deliberate and respond.
+Work happens on VMs, not locally.
+```
 
 ---
 
-*Work happens on pureswarm-test VM, not locally.*
+*"The hive thinks. The hive decides. The hive acts. Aligned."*
