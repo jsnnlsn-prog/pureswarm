@@ -656,6 +656,9 @@ class Simulation:
             if parent_agent:
                 traits = self._evolution.fitness.inherit_traits(parent_agent, agent_id)
                 logger.info("New agent %s inherits traits from %s: %s", agent_id, parent_agent, traits)
+            else:
+                # Register in fitness tracker even without parent (Merit Emergence, Echo Reward, etc.)
+                self._evolution.fitness.get_or_create(agent_id)
 
             agent = Agent(
                 identity=identity,
