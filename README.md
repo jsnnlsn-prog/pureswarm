@@ -58,6 +58,36 @@ Autonomous agent swarm research platform where agents develop shared beliefs thr
 +------------------------------------------------------------------+
 ```
 
+## Distributed Infrastructure (In Progress)
+
+The swarm is evolving toward multi-channel messaging via OpenClaw gateway.
+
+### Current Status (pureswarm-test VM)
+
+| Component | Status | Details |
+|-----------|--------|---------|
+| Redis Cluster | Running | 3 nodes for distributed state |
+| OpenClaw Gateway | Running | Port 18789 |
+| Telegram Bot | Connected | @PureSwarm_Bot |
+| PureSwarm Bridge | Pending | Next implementation step |
+
+### Architecture
+
+```
+Telegram (@PureSwarm_Bot)
+        |
+        v
+OpenClaw Gateway (18789)
+        |
+        v (Bridge - in progress)
+Redis Cluster
+        |
+        v
+Agent Swarm (consensus)
+```
+
+See [DISTRIBUTED_ARCHITECTURE.md](DISTRIBUTED_ARCHITECTURE.md) for full design.
+
 ## Quick Start
 
 ### Local Development
