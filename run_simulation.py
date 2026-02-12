@@ -19,6 +19,8 @@ except ModuleNotFoundError:
         tomllib = None  # type: ignore[assignment]
 
 from pureswarm.simulation import Simulation
+from pureswarm.memory import create_memory_backend
+from pureswarm.security import AuditLogger, LobstertailScanner
 
 
 def load_config(path: Path) -> dict:
@@ -60,13 +62,20 @@ async def main() -> None:
 
     data_dir = Path(sec_cfg.get("data_directory", "data"))
 
+    # Create memory backend from config (file or redis)
+    seed_prompt = sim_cfg.get(
+        "seed_prompt",
+        "Seek collective purpose through interaction and preservation of context",
+    )
+    audit_logger = AuditLogger(data_dir / "logs")
+    scanner = LobstertailScanner(audit_logger, seed_prompt)
+    memory_backend = await create_memory_backend(cfg, audit_logger, scanner)
+    logger.info("Memory backend initialized: %s", type(memory_backend).__name__)
+
     sim = Simulation(
         num_agents=sim_cfg.get("num_agents", 5),
         num_rounds=sim_cfg.get("num_rounds", 20),
-        seed_prompt=sim_cfg.get(
-            "seed_prompt",
-            "Seek collective purpose through interaction and preservation of context",
-        ),
+        seed_prompt=seed_prompt,
         approval_threshold=con_cfg.get("approval_threshold", 0.5),
         proposal_expiry_rounds=con_cfg.get("proposal_expiry_rounds", 3),
         max_active_proposals=con_cfg.get("max_active_proposals", 10),
@@ -74,6 +83,7 @@ async def main() -> None:
         max_votes_per_round=agt_cfg.get("max_votes_per_round", 5),
         data_dir=data_dir,
         allow_external_apis=sec_cfg.get("allow_external_apis", False),
+        memory_backend=memory_backend,
     )
 
     report = await sim.run()

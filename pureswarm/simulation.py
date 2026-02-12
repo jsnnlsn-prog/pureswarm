@@ -13,7 +13,7 @@ from typing import Optional, List
 from .agent import Agent
 from .chronicle import Chronicle
 from .consensus import ConsensusProtocol
-from .memory import SharedMemory, CONSENSUS_GUARD
+from .memory import SharedMemory, MemoryBackend, CONSENSUS_GUARD
 from .message_bus import MessageBus
 from .models import AgentIdentity, RoundSummary, SimulationReport, Tenet, ProposalStatus, AgentRole, Message, MessageType, AuditEntry, ChronicleCategory
 from .security import AuditLogger, LobstertailScanner, SandboxChecker
@@ -47,6 +47,7 @@ class Simulation:
         max_votes_per_round: int = 5,
         data_dir: Path | None = None,
         allow_external_apis: bool = False,
+        memory_backend: MemoryBackend | None = None,
     ) -> None:
         self._num_agents = num_agents
         self._num_rounds = num_rounds
@@ -75,7 +76,12 @@ class Simulation:
              # I'll raise ValueError to stop it.
              raise ValueError("Seed prompt blocked by Lobstertail Security.")
 
-        self._memory = SharedMemory(self._data_dir, self._audit, scanner=self._scanner)
+        # Memory backend: use injected backend or default to file-based SharedMemory
+        if memory_backend is not None:
+            self._memory = memory_backend
+            logger.info("Using injected memory backend: %s", type(memory_backend).__name__)
+        else:
+            self._memory = SharedMemory(self._data_dir, self._audit, scanner=self._scanner)
         self._chronicle = Chronicle(self._data_dir)
         self._bus = MessageBus(scanner=self._scanner)
 
