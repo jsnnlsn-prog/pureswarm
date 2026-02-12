@@ -44,6 +44,37 @@ class ProphecyEngine:
             logger.error("Error verifying prophecy: %s", e)
             return False
 
+    def load_from_file(self, file_path: str = "data/.prophecy") -> bool:
+        """Attempt to load a prophecy from a file."""
+        import os
+        from pathlib import Path
+        
+        path = Path(file_path)
+        if not path.exists():
+            return False
+            
+        try:
+            content = path.read_text(encoding="utf-8").strip()
+            if not content:
+                return False
+                
+            # Expected format: SIGNATURE:CONTENT
+            if ":" not in content:
+                logger.warning("Invalid prophecy file format")
+                return False
+                
+            sig, text = content.split(":", 1)
+            if self.verify_and_capture(text, sig):
+                # Consume file after successful read
+                # path.unlink() # verifying first, maybe don't delete yet?
+                return True
+            return False
+        except Exception as e:
+            logger.error("Failed to load prophecy from file: %s", e)
+            return False
+
     def get_latest_prophecy(self) -> Optional[Prophecy]:
         """Retrieve the most recent verified prophecy."""
+        # Always check for new prophecy file
+        self.load_from_file()
         return self._history[-1] if self._history else None
