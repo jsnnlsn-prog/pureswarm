@@ -17,6 +17,17 @@ import redis.asyncio as redis
 
 from .models import Message, MessageType
 
+
+# ---------------------------------------------------------------------------
+# Security Configuration
+# ---------------------------------------------------------------------------
+
+# List of authorized Telegram usernames (case-insensitive) or IDs
+WHITELISTED_USERS = [
+    "dopamineronin",
+    "7322053644", # Added based on ID seen in previous logs if available, otherwise just username
+]
+
 logger = logging.getLogger("pureswarm.bridge")
 
 
@@ -93,6 +104,10 @@ class OpenClawBridge:
             Response string to send back through OpenClaw
         """
         logger.info("Bridge received message from %s via %s: %s", sender, channel, content[:100])
+
+        if sender.lower() not in [u.lower() for u in WHITELISTED_USERS] and str(sender) not in WHITELISTED_USERS:
+            logger.warning("Blocked message from unauthorized user: %s", sender)
+            return "ACCESS DENIED: You are not authorized to communicate with the Swarm."
 
         # Store in Redis for audit
         await self._store_incoming_message(channel, sender, content, metadata)
