@@ -14,7 +14,7 @@ A distributed AI agent swarm with multi-channel messaging, consensus-driven inte
 | PureSwarm Bridge | NOT BUILT | - | Next priority |
 | Redis Memory Backend | VALIDATED | pureswarm/memory.py | DI pattern implemented |
 | Dynomite | NOT DEPLOYED | - | Phase 5 |
-| Production (pureswarm-node) | FILE BACKEND | 68 agents, 127 tenets | Awaiting migration |
+| Production (pureswarm-node) | FILE BACKEND | 63 agents, 127 tenets | Awaiting migration |
 
 ### Current Data Flow (Partial)
 

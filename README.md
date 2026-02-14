@@ -11,7 +11,7 @@ Autonomous agent swarm research platform where agents develop shared beliefs thr
 - **Collective Memory**: Tenets and chronicle persist across simulation runs (democratic evolution)
 - **Shinobi no San**: A triad of agents with external mission capabilities
 - **Prophecy System**: Authenticated directives from the Sovereign (operator)
-- **Evolution**: Dopamine-driven shared emotions, fitness tracking, natural selection (20→60+ agents)
+- **Evolution**: Dopamine-driven shared emotions, fitness tracking, natural selection (20→63 agents)
 - **Sovereign Pillars**: Foundational beliefs injected at genesis
 
 ## Architecture
@@ -35,11 +35,11 @@ Autonomous agent swarm research platform where agents develop shared beliefs thr
 |  - Read by all       - Persist across    - Scanned messages     |
 |  - Write via vote    - Growth/prophecy   - Dopamine broadcasts  |
 |                                                                  |
-|                        AGENTS (60+)                              |
+|                        AGENTS (63)                               |
 |              Perceive -> Reason -> Act -> Reflect                |
 |         (Read tenets + chronicle when making decisions)          |
 |                                                                  |
-|     RESIDENTS (57+)             SHINOBI NO SAN (3)               |
+|     RESIDENTS (60)              SHINOBI NO SAN (3)               |
 |     - Vote on tenets            - Receive prophecies             |
 |     - Propose beliefs           - Execute external missions      |
 |     - Feel dopamine             - Internet access                |

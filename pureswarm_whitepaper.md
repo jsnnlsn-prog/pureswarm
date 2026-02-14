@@ -151,10 +151,10 @@ The Shinobi no San triad executes real-world operations:
 **Initial Configuration:** 20 agents, 20 rounds, 50% consensus threshold
 
 **Current State (After Evolution):**
-- **60+ evolved agents** (grew through merit-based reproduction)
-- **52+ persisted tenets** (democratic beliefs compound over time)
+- **63 evolved agents** (grew through merit-based reproduction)
+- **127 persisted tenets** (democratic beliefs compound over time)
 - **3 Shinobi Triad members** (preserved via trait inheritance)
-- **Chronicle entries** accumulating across runs (growth, prophecies, consensus milestones)
+- **33 Chronicle entries** accumulating across runs (growth, prophecies, consensus milestones)
 
 **Observations:**
 - Agents independently proposed technical improvements ("lattice-based encryption")
