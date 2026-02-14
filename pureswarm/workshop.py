@@ -1,8 +1,11 @@
-"""Workshop system for collective problem-solving on real-world challenges.
+"""Workshop system for collective skill development in swarm domains.
 
-The swarm tackles societal problems through collaborative workshops,
-applying their technical expertise to climate, healthcare, democracy,
-AI ethics, and other critical domains.
+The swarm develops expertise through collaborative workshops aligned with
+PureSwarm's core capabilities: threat detection, consensus defense, stealth
+operations, cryptography, evolution mechanics, and distributed architecture.
+
+Includes the voluntary Sovereign's Workshop for elite agents studying the
+Saturation Principle and GovTech Hunter methodology.
 """
 
 import asyncio
@@ -22,194 +25,147 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Real-World Problem Catalog
+# Core Workshop Catalog (6 Required)
 # ---------------------------------------------------------------------------
 
 PROBLEM_CATALOG: list[WorkshopProblem] = [
-    # Climate & Environment
+    # 1. Autonomous Threat Detection (Immune System)
     WorkshopProblem(
-        title="Distributed Climate Data Validation",
-        description="How can we build trustworthy, decentralized systems for climate data that prevent manipulation while enabling rapid scientific collaboration?",
-        domain=ProblemDomain.CLIMATE,
-        technical_dimensions=["distributed systems", "data integrity", "consensus protocols", "blockchain"],
-        ethical_dimensions=["transparency", "scientific integrity", "global equity"],
-        target_specialties=["cloud", "security", "database", "networking"]
+        title="Autonomous Threat Detection",
+        description="How do we detect rogue AI swarms before they cause harm? Study behavioral fingerprints, coordination signatures, and timing analysis patterns.",
+        domain=ProblemDomain.IMMUNE_SYSTEM,
+        technical_dimensions=["behavioral fingerprints", "coordination signatures", "timing analysis", "anomaly detection"],
+        ethical_dimensions=["false positive mitigation", "proportional response", "transparency"],
+        target_specialties=["security", "ai_ml", "networking"]
     ),
     WorkshopProblem(
-        title="Carbon Footprint Tracking at Scale",
-        description="Design systems to accurately track and verify carbon emissions across global supply chains without centralizing control.",
-        domain=ProblemDomain.CLIMATE,
-        technical_dimensions=["IoT", "distributed ledgers", "data pipelines", "API design"],
-        ethical_dimensions=["corporate accountability", "privacy", "data sovereignty"],
-        target_specialties=["cloud", "database", "networking", "devops"]
-    ),
-
-    # Misinformation & Trust
-    WorkshopProblem(
-        title="Decentralized Fact-Checking Networks",
-        description="How can communities verify information without relying on centralized gatekeepers, while preventing coordinated manipulation?",
-        domain=ProblemDomain.MISINFORMATION,
-        technical_dimensions=["distributed consensus", "reputation systems", "graph theory", "cryptography"],
-        ethical_dimensions=["free speech", "epistemic justice", "power distribution"],
-        target_specialties=["security", "database", "networking", "ai_ml"]
-    ),
-    WorkshopProblem(
-        title="Provenance Tracking for Digital Media",
-        description="Build systems to track the origin and modification history of images/videos without centralized registries.",
-        domain=ProblemDomain.MISINFORMATION,
-        technical_dimensions=["cryptographic hashing", "watermarking", "distributed storage", "blockchain"],
-        ethical_dimensions=["authenticity", "censorship resistance", "privacy"],
-        target_specialties=["security", "cloud", "database"]
-    ),
-
-    # Healthcare Access
-    WorkshopProblem(
-        title="Privacy-Preserving Health Records",
-        description="Enable patients to control their medical data while allowing emergency access and research collaboration.",
-        domain=ProblemDomain.HEALTHCARE,
-        technical_dimensions=["encryption", "access control", "zero-knowledge proofs", "distributed storage"],
-        ethical_dimensions=["patient autonomy", "data privacy", "emergency care access"],
-        target_specialties=["security", "cloud", "database"]
-    ),
-    WorkshopProblem(
-        title="Telemedicine Infrastructure for Rural Areas",
-        description="Design resilient, low-bandwidth systems to deliver healthcare to underserved regions.",
-        domain=ProblemDomain.HEALTHCARE,
-        technical_dimensions=["edge computing", "network optimization", "offline-first design", "compression"],
-        ethical_dimensions=["healthcare equity", "accessibility", "resource allocation"],
-        target_specialties=["networking", "cloud", "devops"]
-    ),
-
-    # Economic Inequality
-    WorkshopProblem(
-        title="Transparent Algorithmic Hiring Systems",
-        description="Build hiring platforms that are fair and auditable, preventing discriminatory bias while respecting candidate privacy.",
-        domain=ProblemDomain.INEQUALITY,
-        technical_dimensions=["ML fairness", "explainability", "audit trails", "differential privacy"],
-        ethical_dimensions=["fairness", "transparency", "privacy", "accountability"],
+        title="Swarm Behavioral Fingerprinting",
+        description="Develop techniques to identify autonomous agent collectives by their emergent behavior patterns, communication rhythms, and decision signatures.",
+        domain=ProblemDomain.IMMUNE_SYSTEM,
+        technical_dimensions=["pattern recognition", "graph analysis", "temporal correlation", "entropy measurement"],
+        ethical_dimensions=["privacy preservation", "accurate attribution", "escalation protocols"],
         target_specialties=["ai_ml", "security", "database"]
     ),
+
+    # 2. Consensus Attack & Defense (Red Team)
     WorkshopProblem(
-        title="Decentralized Universal Basic Income",
-        description="Design distribution systems for UBI that prevent fraud without requiring intrusive surveillance.",
-        domain=ProblemDomain.INEQUALITY,
-        technical_dimensions=["identity verification", "distributed ledgers", "cryptography", "sybil resistance"],
-        ethical_dimensions=["privacy", "dignity", "equity", "autonomy"],
-        target_specialties=["security", "database", "networking"]
+        title="Consensus Attack Vectors",
+        description="Understand how adversaries manipulate swarm consensus: sybil attacks, vote manipulation, drift injection, and belief poisoning.",
+        domain=ProblemDomain.RED_TEAM,
+        technical_dimensions=["sybil resistance", "vote manipulation", "drift injection", "Byzantine fault tolerance"],
+        ethical_dimensions=["defensive focus", "responsible disclosure", "hardening over exploitation"],
+        target_specialties=["security", "cryptography", "distributed_systems"]
+    ),
+    WorkshopProblem(
+        title="Belief System Integrity",
+        description="How do we protect shared tenets from corruption? Study memetic attacks, gradual drift, and techniques to maintain collective truth.",
+        domain=ProblemDomain.RED_TEAM,
+        technical_dimensions=["merkle proofs", "consensus verification", "rollback mechanisms", "quorum systems"],
+        ethical_dimensions=["truth preservation", "minority protection", "evolution vs stability"],
+        target_specialties=["cryptography", "database", "security"]
     ),
 
-    # Privacy vs Security
+    # 3. Stealth Operations (Shinobi)
     WorkshopProblem(
-        title="End-to-End Encrypted Collaboration Tools",
-        description="Build work platforms with E2E encryption that still allow content moderation and compliance.",
-        domain=ProblemDomain.PRIVACY,
-        technical_dimensions=["encryption", "key management", "client-side scanning", "metadata protection"],
-        ethical_dimensions=["privacy", "safety", "power dynamics", "consent"],
-        target_specialties=["security", "cloud", "networking"]
+        title="Browser Fingerprint Evasion",
+        description="Master techniques to avoid detection: canvas fingerprints, WebGL signatures, navigator properties, audio fingerprints, and timing patterns.",
+        domain=ProblemDomain.SHINOBI,
+        technical_dimensions=["canvas fingerprinting", "WebGL evasion", "navigator spoofing", "audio fingerprint masking"],
+        ethical_dimensions=["authorized use only", "defensive research", "privacy protection"],
+        target_specialties=["browser_automation", "security", "networking"]
     ),
     WorkshopProblem(
-        title="Anonymous Reporting Systems",
-        description="Create whistleblower platforms that protect anonymity while preventing abuse and false reports.",
-        domain=ProblemDomain.PRIVACY,
-        technical_dimensions=["anonymity networks", "reputation systems", "verification", "Tor/mixnets"],
-        ethical_dimensions=["accountability", "protection", "trust", "justice"],
-        target_specialties=["security", "networking", "database"]
-    ),
-
-    # AI Ethics & Governance
-    WorkshopProblem(
-        title="Auditable AI Decision Systems",
-        description="Design AI systems where decisions can be explained and challenged without exposing proprietary models.",
-        domain=ProblemDomain.AI_ETHICS,
-        technical_dimensions=["explainability", "audit trails", "model cards", "differential privacy"],
-        ethical_dimensions=["transparency", "accountability", "fairness", "recourse"],
-        target_specialties=["ai_ml", "security", "database"]
-    ),
-    WorkshopProblem(
-        title="Collective Governance of AI Systems",
-        description="How can communities democratically govern AI systems that affect them, without technical expertise?",
-        domain=ProblemDomain.AI_ETHICS,
-        technical_dimensions=["consensus protocols", "voting systems", "accessibility design", "participatory systems"],
-        ethical_dimensions=["democracy", "inclusion", "power distribution", "expertise vs democracy"],
-        target_specialties=["security", "database", "networking", "frontend"]
+        title="Human Behavior Simulation",
+        description="Learn to mimic human interaction patterns: Bezier-curve mouse movements, variable typing speeds, realistic scroll behavior, and timing humanization.",
+        domain=ProblemDomain.SHINOBI,
+        technical_dimensions=["mouse dynamics", "keystroke timing", "scroll patterns", "attention simulation"],
+        ethical_dimensions=["legitimate automation", "rate limiting respect", "platform ToS awareness"],
+        target_specialties=["browser_automation", "ai_ml", "frontend"]
     ),
 
-    # Energy & Sustainability
+    # 4. Cryptographic Authority
     WorkshopProblem(
-        title="Decentralized Energy Grid Management",
-        description="Coordinate renewable energy distribution across peer-to-peer grids without central control.",
-        domain=ProblemDomain.ENERGY,
-        technical_dimensions=["real-time systems", "consensus algorithms", "IoT", "edge computing"],
-        ethical_dimensions=["energy democracy", "resilience", "equity", "sustainability"],
-        target_specialties=["networking", "cloud", "devops", "iot"]
+        title="Prophecy Authentication Systems",
+        description="Study HMAC-signed command injection, signature verification, replay attack prevention, and secure directive transmission.",
+        domain=ProblemDomain.CRYPTOGRAPHY,
+        technical_dimensions=["HMAC signing", "replay prevention", "nonce management", "key rotation"],
+        ethical_dimensions=["authority verification", "audit trails", "emergency override protocols"],
+        target_specialties=["cryptography", "security", "backend"]
     ),
     WorkshopProblem(
-        title="Sustainable Data Center Design",
-        description="Minimize environmental impact of cloud infrastructure while maintaining availability and performance.",
-        domain=ProblemDomain.ENERGY,
-        technical_dimensions=["workload optimization", "renewable energy", "cooling systems", "efficiency"],
-        ethical_dimensions=["environmental responsibility", "cost vs impact", "global inequality"],
-        target_specialties=["cloud", "devops", "networking"]
-    ),
-
-    # Food Security
-    WorkshopProblem(
-        title="Transparent Supply Chain Tracking",
-        description="Track food from farm to table to reduce waste and ensure safety, without empowering monopolies.",
-        domain=ProblemDomain.FOOD_SECURITY,
-        technical_dimensions=["IoT", "distributed ledgers", "sensor networks", "data pipelines"],
-        ethical_dimensions=["food sovereignty", "fair trade", "transparency", "farmer autonomy"],
-        target_specialties=["cloud", "database", "networking", "iot"]
+        title="Vault Architecture",
+        description="Design secure credential storage: encryption at rest, key derivation functions, emergency access protocols, and compartmentalization.",
+        domain=ProblemDomain.CRYPTOGRAPHY,
+        technical_dimensions=["encryption at rest", "KDF selection", "HSM integration", "secret rotation"],
+        ethical_dimensions=["principle of least privilege", "emergency access", "audit logging"],
+        target_specialties=["security", "cryptography", "devops"]
     ),
 
-    # Mental Health
+    # 5. Evolution Mechanics
     WorkshopProblem(
-        title="Privacy-Preserving Mental Health Platforms",
-        description="Build therapy and support systems that protect sensitive data while enabling intervention in crises.",
-        domain=ProblemDomain.MENTAL_HEALTH,
-        technical_dimensions=["encryption", "access control", "emergency protocols", "local-first design"],
-        ethical_dimensions=["privacy", "duty to warn", "autonomy", "care"],
-        target_specialties=["security", "cloud", "database", "frontend"]
+        title="Fitness-Based Natural Selection",
+        description="Understand how agent fitness scores drive evolution: verified success weighting, false report penalties, reproduction triggers, and retirement criteria.",
+        domain=ProblemDomain.EVOLUTION,
+        technical_dimensions=["fitness algorithms", "reproduction triggers", "mutation rates", "population dynamics"],
+        ethical_dimensions=["fairness in evaluation", "recovery opportunities", "transparent criteria"],
+        target_specialties=["ai_ml", "database", "backend"]
+    ),
+    WorkshopProblem(
+        title="Trait Inheritance & Mutation",
+        description="Study how successful traits propagate: lineage tracking, trait crossover, beneficial mutation, and emergent specialization.",
+        domain=ProblemDomain.EVOLUTION,
+        technical_dimensions=["genetic algorithms", "trait encoding", "crossover strategies", "diversity preservation"],
+        ethical_dimensions=["avoiding monoculture", "preserving minority traits", "long-term resilience"],
+        target_specialties=["ai_ml", "backend", "database"]
     ),
 
-    # Democracy & Governance
+    # 6. Distributed Architecture
     WorkshopProblem(
-        title="Secure Decentralized Voting Systems",
-        description="Build voting systems that are verifiable, anonymous, and resistant to coercion and manipulation.",
-        domain=ProblemDomain.DEMOCRACY,
-        technical_dimensions=["cryptography", "zero-knowledge proofs", "distributed consensus", "verification"],
-        ethical_dimensions=["democracy", "privacy", "accessibility", "trust"],
-        target_specialties=["security", "database", "networking"]
-    ),
-    WorkshopProblem(
-        title="Participatory Budgeting Platforms",
-        description="Enable communities to democratically allocate resources at scale with transparency and fairness.",
-        domain=ProblemDomain.DEMOCRACY,
-        technical_dimensions=["voting algorithms", "preference aggregation", "audit trails", "accessibility"],
-        ethical_dimensions=["representation", "equity", "deliberation", "power"],
-        target_specialties=["database", "security", "frontend"]
-    ),
-
-    # Education
-    WorkshopProblem(
-        title="Decentralized Credential Verification",
-        description="Create portable, verifiable educational credentials that don't lock students into platforms.",
-        domain=ProblemDomain.EDUCATION,
-        technical_dimensions=["distributed identity", "verifiable credentials", "blockchain", "interoperability"],
-        ethical_dimensions=["learner autonomy", "credential fraud", "equity", "privacy"],
-        target_specialties=["security", "database", "networking"]
-    ),
-
-    # Infrastructure
-    WorkshopProblem(
-        title="Resilient Communication During Disasters",
-        description="Build mesh networks and peer-to-peer systems that maintain connectivity when infrastructure fails.",
+        title="Redis Cluster Coordination",
+        description="Master multi-node coordination: cluster topology, failover handling, pub/sub patterns, and data consistency across nodes.",
         domain=ProblemDomain.INFRASTRUCTURE,
-        technical_dimensions=["mesh networking", "offline-first", "edge computing", "resilience"],
-        ethical_dimensions=["emergency access", "equity", "decentralization", "public good"],
-        target_specialties=["networking", "cloud", "devops"]
+        technical_dimensions=["Redis clustering", "pub/sub patterns", "failover", "data partitioning"],
+        ethical_dimensions=["availability vs consistency", "graceful degradation", "data durability"],
+        target_specialties=["devops", "backend", "database"]
+    ),
+    WorkshopProblem(
+        title="Message Bus Resilience",
+        description="Build robust async communication: message ordering, delivery guarantees, backpressure handling, and partition tolerance.",
+        domain=ProblemDomain.INFRASTRUCTURE,
+        technical_dimensions=["async patterns", "message ordering", "backpressure", "partition tolerance"],
+        ethical_dimensions=["message integrity", "no silent failures", "observable systems"],
+        target_specialties=["backend", "devops", "networking"]
     ),
 ]
+
+
+# ---------------------------------------------------------------------------
+# Sovereign's Workshop (Voluntary - GovTech Hunter)
+# ---------------------------------------------------------------------------
+
+SOVEREIGN_WORKSHOP: WorkshopProblem = WorkshopProblem(
+    title="The Saturation Principle: GovTech Hunter",
+    description="""Master the Sovereign's flagship methodology: security through saturation, not obscurity.
+
+    Modules:
+    - Saturation Philosophy: If everyone has audit tools, fraud becomes economically unviable
+    - Red Team Thinking: Every vulnerability generates an Antibody (defensive clause)
+    - Hunter Anatomy: Eyes (scrape) -> Brain (analyze) -> Antibody (defend)
+    - Feedback Loops: Good AND bad outcomes are positive learning signals
+    - AI Fraud Vectors: Template farming, offshore outsourcing, credential fraud
+    - System Evolution: Keyword fallback -> AI dual-track -> continuous improvement
+    """,
+    domain=ProblemDomain.SOVEREIGN_CRAFT,
+    technical_dimensions=[
+        "stealth scraping", "AI analysis", "antibody generation",
+        "dual-track fallback", "PDF extraction", "API orchestration"
+    ],
+    ethical_dimensions=[
+        "security through openness", "breaking fraudster ROI",
+        "proactive antibody generation", "radical transparency"
+    ],
+    target_specialties=["triad"]  # Only Shinobi Triad eligible
+)
 
 
 # ---------------------------------------------------------------------------
@@ -222,37 +178,53 @@ class WorkshopOrchestrator:
     def __init__(self, data_dir: Path):
         self._data_dir = data_dir
         self._catalog = PROBLEM_CATALOG
+        self._sovereign_workshop = SOVEREIGN_WORKSHOP
         self._history: list[WorkshopSession] = []
+
+    def is_eligible_for_sovereign_workshop(
+        self,
+        agent_role: str,
+        fitness_score: float
+    ) -> bool:
+        """Check if agent qualifies for the voluntary Sovereign's Workshop.
+
+        Eligibility: Triad role + fitness >= 0.9
+        """
+        return agent_role == "triad" and fitness_score >= 0.9
 
     async def select_problem(
         self,
         round_number: int,
         agent_specialties: list[str],
         chronicle_events: list[Any] | None = None,
-        sovereign_override: str | None = None
+        sovereign_override: str | None = None,
+        agent_role: str | None = None,
+        agent_fitness: float = 0.0
     ) -> WorkshopProblem:
         """Select the next workshop problem.
 
-        Selection strategy (Hybrid - Option C):
+        Selection strategy:
         1. Sovereign override via prophecy (highest priority)
-        2. Chronicle-driven (respond to recent patterns)
-        3. Specialty-matched (ensure relevance to current agents)
+        2. Sovereign's Workshop for eligible elite agents (voluntary)
+        3. Specialty-matched core workshops
         4. Rotating curriculum (ensure diversity)
         """
 
         # Sovereign override
         if sovereign_override:
+            # Check for Sovereign's Workshop request
+            if "saturation" in sovereign_override.lower() or "govtech" in sovereign_override.lower():
+                if self.is_eligible_for_sovereign_workshop(agent_role or "", agent_fitness):
+                    logger.info("Workshop: Sovereign's Workshop activated for elite agent")
+                    return self._sovereign_workshop
+                else:
+                    logger.warning("Workshop: Agent not eligible for Sovereign's Workshop")
+
+            # Check core catalog
             for problem in self._catalog:
                 if sovereign_override.lower() in problem.title.lower():
                     logger.info("Workshop: Sovereign mandate - %s", problem.title)
                     return problem
-
-        # Chronicle-driven selection (check for patterns in recent events)
-        if chronicle_events:
-            # Example: If many consensus events, focus on democracy/governance
-            # Example: If growth events, focus on scalability/infrastructure
-            # This can be expanded with sophisticated pattern matching
-            pass
 
         # Specialty-matched selection (ensure problem matches agent skills)
         relevant_problems = [
@@ -271,7 +243,7 @@ class WorkshopOrchestrator:
             fresh_problems = relevant_problems
 
         # Rotating curriculum: cycle through domains
-        domain_counts = {}
+        domain_counts: dict[ProblemDomain, int] = {}
         for session in self._history:
             domain = session.problem.domain
             domain_counts[domain] = domain_counts.get(domain, 0) + 1
@@ -322,8 +294,6 @@ class WorkshopOrchestrator:
         This transforms collaborative learning into actionable beliefs
         that the swarm can vote on through consensus.
         """
-        # For now, return workshop problem as a tenet proposal template
-        # In full implementation, this would use agent reasoning to synthesize insights
         proposals = []
 
         # Generate a proposal based on the problem domain
@@ -345,23 +315,18 @@ class WorkshopOrchestrator:
         insights: list[WorkshopInsight]
     ) -> str:
         """Create a tenet proposal from problem and insights."""
-        # Template-based synthesis (can be enhanced with agent reasoning)
+        # Template-based synthesis aligned with new domains
         templates = {
-            ProblemDomain.CLIMATE: "Systems addressing {title} must prioritize {ethical} while implementing {technical}",
-            ProblemDomain.MISINFORMATION: "To combat {title}, we must balance {ethical} with {technical} approaches",
-            ProblemDomain.HEALTHCARE: "Healthcare solutions for {title} require {technical} infrastructure that honors {ethical}",
-            ProblemDomain.INEQUALITY: "Addressing {title} demands {technical} systems designed with {ethical} at their core",
-            ProblemDomain.PRIVACY: "Privacy-preserving approaches to {title} must integrate {technical} and respect {ethical}",
-            ProblemDomain.AI_ETHICS: "AI systems for {title} require {technical} capabilities governed by {ethical} principles",
-            ProblemDomain.ENERGY: "Sustainable solutions to {title} need {technical} innovation aligned with {ethical}",
-            ProblemDomain.FOOD_SECURITY: "Food systems addressing {title} should combine {technical} with commitment to {ethical}",
-            ProblemDomain.MENTAL_HEALTH: "Mental health platforms for {title} must balance {technical} security with {ethical}",
-            ProblemDomain.DEMOCRACY: "Democratic systems for {title} require {technical} robustness and {ethical} foundations",
-            ProblemDomain.EDUCATION: "Educational technology for {title} should leverage {technical} while ensuring {ethical}",
-            ProblemDomain.INFRASTRUCTURE: "Infrastructure solutions for {title} need {technical} resilience rooted in {ethical}",
+            ProblemDomain.IMMUNE_SYSTEM: "Defending against {title} requires {technical} capabilities guided by {ethical}",
+            ProblemDomain.RED_TEAM: "Understanding {title} strengthens our defenses through {technical} while maintaining {ethical}",
+            ProblemDomain.SHINOBI: "Mastering {title} demands {technical} expertise exercised with {ethical}",
+            ProblemDomain.CRYPTOGRAPHY: "Securing {title} requires {technical} implementation anchored in {ethical}",
+            ProblemDomain.EVOLUTION: "Optimizing {title} depends on {technical} mechanisms balanced by {ethical}",
+            ProblemDomain.INFRASTRUCTURE: "Building {title} needs {technical} architecture founded on {ethical}",
+            ProblemDomain.SOVEREIGN_CRAFT: "The Saturation Principle teaches that {title} succeeds through {technical} and {ethical}",
         }
 
-        template = templates.get(problem.domain, "Solutions to {title} require {technical} and {ethical}")
+        template = templates.get(problem.domain, "Excellence in {title} requires {technical} and {ethical}")
 
         # Pick representative technical and ethical dimensions
         technical = problem.technical_dimensions[0] if problem.technical_dimensions else "technical excellence"
@@ -378,3 +343,7 @@ class WorkshopOrchestrator:
     async def get_recent_workshops(self, limit: int = 5) -> list[WorkshopSession]:
         """Retrieve recent workshop history for Chronicle integration."""
         return self._history[-limit:]
+
+    def get_sovereign_workshop(self) -> WorkshopProblem:
+        """Get the Sovereign's Workshop definition for inspection."""
+        return self._sovereign_workshop

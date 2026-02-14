@@ -66,19 +66,16 @@ class ChronicleCategory(str, Enum):
 
 
 class ProblemDomain(str, Enum):
-    """Real-world societal challenge domains."""
-    CLIMATE = "climate"
-    MISINFORMATION = "misinformation"
-    HEALTHCARE = "healthcare"
-    INEQUALITY = "inequality"
-    PRIVACY = "privacy"
-    AI_ETHICS = "ai_ethics"
-    ENERGY = "energy"
-    FOOD_SECURITY = "food_security"
-    MENTAL_HEALTH = "mental_health"
-    DEMOCRACY = "democracy"
-    EDUCATION = "education"
-    INFRASTRUCTURE = "infrastructure"
+    """Swarm expertise domains aligned with PureSwarm capabilities."""
+    # Core 6 Workshops
+    IMMUNE_SYSTEM = "immune_system"      # Autonomous threat detection
+    RED_TEAM = "red_team"                # Consensus attack & defense
+    SHINOBI = "shinobi"                  # Stealth operations
+    CRYPTOGRAPHY = "cryptography"        # Cryptographic authority
+    EVOLUTION = "evolution"              # Evolution mechanics
+    INFRASTRUCTURE = "infrastructure"    # Distributed architecture
+    # Sovereign's Workshop (voluntary)
+    SOVEREIGN_CRAFT = "sovereign_craft"  # GovTech Hunter / Saturation Principle
 
 
 # ---------------------------------------------------------------------------
