@@ -61,3 +61,4 @@ cloud_swarm_backup/
 # VM backup directories
 backup_*/
 data_backup_*/
+data_local_backup_*/
