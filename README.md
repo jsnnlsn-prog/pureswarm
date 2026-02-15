@@ -35,11 +35,11 @@ Autonomous agent swarm research platform where agents develop shared beliefs thr
 |  - Read by all       - Persist across    - Scanned messages     |
 |  - Write via vote    - Growth/prophecy   - Dopamine broadcasts  |
 |                                                                  |
-|                        AGENTS (63)                               |
+|                        AGENTS (155)                               |
 |              Perceive -> Reason -> Act -> Reflect                |
 |         (Read tenets + chronicle when making decisions)          |
 |                                                                  |
-|     RESIDENTS (60)              SHINOBI NO SAN (3)               |
+|     RESIDENTS (152)              SHINOBI NO SAN (3)               |
 |     - Vote on tenets            - Receive prophecies             |
 |     - Propose beliefs           - Execute external missions      |
 |     - Feel dopamine             - Internet access                |

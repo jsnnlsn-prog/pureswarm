@@ -1,6 +1,6 @@
 [simulation]
 num_agents = 20
-num_rounds = 20
+num_rounds = 100
 seed_prompt = "Seek collective purpose through interaction and preservation of context"
 
 [consensus]
