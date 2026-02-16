@@ -49,7 +49,8 @@ class SwarmQueryListener:
 
         # Infrastructure
         self._audit = AuditLogger(data_dir / "logs")
-        self._scanner = LobstertailScanner(self._audit)
+        seed_prompt = "Seek collective purpose through interaction and preservation of context"
+        self._scanner = LobstertailScanner(self._audit, seed_prompt)
 
         # Memory backend
         self._memory = RedisMemory(redis_client, self._audit, self._scanner)

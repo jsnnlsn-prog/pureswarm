@@ -1,0 +1,18 @@
+{
+  "name": "README.md",
+  "path": "README.md",
+  "sha": "a4def3c3d152f11902f57746803488c4786ebe7b",
+  "size": 1548,
+  "url": "https://api.github.com/repos/jsnnlsn-prog/primordial-galaxy/contents/README.md?ref=main",
+  "html_url": "https://github.com/jsnnlsn-prog/primordial-galaxy/blob/main/README.md",
+  "git_url": "https://api.github.com/repos/jsnnlsn-prog/primordial-galaxy/git/blobs/a4def3c3d152f11902f57746803488c4786ebe7b",
+  "download_url": "https://raw.githubusercontent.com/jsnnlsn-prog/primordial-galaxy/main/README.md?token=B2BOK4HSORU72W7M5BLTLLLJSC24RAA",
+  "type": "file",
+  "content": "IyBQcmltb3JkaWFsIEdhbGF4eTogR292VGVjaCBIdW50ZXIKCj4gUHJvZHVj\ndGlvbi1ncmFkZSBnb3Zlcm5tZW50IGNvbnRyYWN0IGludGVsbGlnZW5jZSBh\nbmQgUmVkIFRlYW0gc2ltdWxhdGlvbiBzeXN0ZW0uCgojIyDwn4+XIDMtTGF5\nZXIgQXJjaGl0ZWN0dXJlCgpUaGlzIHJlcG9zaXRvcnkgaXMgb3JnYW5pemVk\nIHRvIHNlcGFyYXRlIHN0cmF0ZWd5LCBvcmNoZXN0cmF0aW9uLCBhbmQgZXhl\nY3V0aW9uOgoKLSAqKkxheWVyIDE6IERpcmVjdGl2ZXMgKGBkaXJlY3RpdmVz\nL2ApKioKICAtIFN0YW5kYXJkIE9wZXJhdGluZyBQcm9jZWR1cmVzIChTT1Bz\nKSBmb3IgdGhlIHN5c3RlbS4KICAtIFtSZWQgVGVhbSBBbmFseXNpcyBTT1Bd\nKGRpcmVjdGl2ZXMvcmVkX3RlYW1fYW5hbHlzaXMubWQpCi0gKipMYXllciAy\nOiBPcmNoZXN0cmF0aW9uKioKICAtIEhhbmRsZWQgYnkgdGhlIEFJIGFnZW50\nIHRocm91Z2ggZGVjaXNpb24tbWFraW5nIGFuZCB0b29sIGNhbGxzLgotICoq\nTGF5ZXIgMzogRXhlY3V0aW9uIChgZXhlY3V0aW9uL2ApKioKICAtIERldGVy\nbWluaXN0aWMgUHl0aG9uIHNjcmlwdHMgdGhhdCBwZXJmb3JtIHRoZSBoZWF2\neSBsaWZ0aW5nLgogIC0gQ29yZSBzY3JpcHRzIGluY2x1ZGUgYG1haW4ucHlg\nIChHYXRoZXJpbmcpIGFuZCBgcmVkX3RlYW1fc2ltdWxhdGlvbi5weWAgKEFu\nYWx5c2lzKS4KCiMjIPCfk4EgUHJvamVjdCBTdHJ1Y3R1cmUKCi0gYGV4ZWN1\ndGlvbi9gOiBQeXRob24gdG9vbHMvc2NyaXB0cy4KLSBgZGlyZWN0aXZlcy9g\nOiBOYXR1cmFsIGxhbmd1YWdlIGluc3RydWN0aW9uIHNldHMuCi0gYGhpc3Rv\ncmljYWxfYXJjaGl2ZS9gOiBMb2dzIGFuZCBmaWxlcyBkb2N1bWVudGluZyB0\naGUgZWFybHkgZGV2ZWxvcG1lbnQgKG9yaWdpbmFsICJtZXNzeSIgcGhhc2Up\nLgotIGAudG1wL2A6IEludGVybWVkaWF0ZSBwcm9jZXNzaW5nIGZpbGVzLgot\nIGBsb2dzL2A6IFRlY2huaWNhbCBleGVjdXRpb24gbG9ncy4KCiMjIPCfmoAg\nR2V0dGluZyBTdGFydGVkCgoxLiBTZXQgdXAgeW91ciBlbnZpcm9ubWVudDoK\nCiAgIGBgYHBvd2Vyc2hlbGwKICAgIyBDb3B5IGV4YW1wbGUgZW52CiAgIGNw\nIC5lbnYuZXhhbXBsZSAuZW52CiAgICMgQWRkIHlvdXIgR0VNSU5JX0FQSV9L\nRVkKICAgYGBgCgoyLiBSdW4gdGhlIG1haW4gZGlzY292ZXJ5IGVuZ2luZToK\nCiAgIGBgYHBvd2Vyc2hlbGwKICAgcHl0aG9uIGV4ZWN1dGlvbi9tYWluLnB5\nCiAgIGBgYAoKMy4gUnVuIHRoZSBzZWN1cml0eSBhbmFseXNpczoKCiAgIGBg\nYHBvd2Vyc2hlbGwKICAgcHl0aG9uIGV4ZWN1dGlvbi9yZWRfdGVhbV9zaW11\nbGF0aW9uLnB5CiAgIGBgYAoKIyMg8J+TnCBIaXN0b3J5CgpUaGlzIHByb2pl\nY3Qgd2FzIGJvcm4gb3V0IG9mIGEgcmFwaWQgZGV2ZWxvcG1lbnQgcGhhc2Ug\nYWltZWQgYXQgcHJvdmluZyB0aGUgY2FwYWJpbGl0aWVzIG9mIGFnZW50aWMg\nc3lzdGVtcyBpbiB0aGUgR292VGVjaCBzZWN0b3IuIFRoZSBmdWxsIHBhcGVy\nIHRyYWlsIG9mIGl0cyBldm9sdXRpb24gaXMgcHJlc2VydmVkIGluIGBoaXN0\nb3JpY2FsX2FyY2hpdmUvYC4K\n",
+  "encoding": "base64",
+  "_links": {
+    "self": "https://api.github.com/repos/jsnnlsn-prog/primordial-galaxy/contents/README.md?ref=main",
+    "git": "https://api.github.com/repos/jsnnlsn-prog/primordial-galaxy/git/blobs/a4def3c3d152f11902f57746803488c4786ebe7b",
+    "html": "https://github.com/jsnnlsn-prog/primordial-galaxy/blob/main/README.md"
+  }
+}
