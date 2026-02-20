@@ -265,7 +265,7 @@ def _keyword_overlap(text_a: str, text_b: str) -> float:
 class RuleBasedStrategy(BaseStrategy):
     """Generate proposals from templates; vote via keyword coherence + personality."""
 
-    def generate_proposal(
+    async def generate_proposal(
         self,
         agent_id: str,
         round_number: int,
@@ -273,6 +273,7 @@ class RuleBasedStrategy(BaseStrategy):
         seed_prompt: str,
         role: AgentRole = AgentRole.RESIDENT,
         prophecy: str | None = None,
+        specialization: str | None = None,
     ) -> str | None:
         rng = random.Random(_deterministic_seed(agent_id, round_number))
         
@@ -310,12 +311,12 @@ class RuleBasedStrategy(BaseStrategy):
 
         # Skip if too similar to an existing tenet
         for tenet in existing_tenets:
-            if _keyword_overlap(text, tenet.text) > 0.7:
+            if _keyword_overlap(text, tenet.text) > 0.4:
                 return None  # avoid redundancy
 
         return text
 
-    def evaluate_proposal(
+    async def evaluate_proposal(
         self,
         agent_id: str,
         proposal: Proposal,
@@ -401,7 +402,7 @@ class RuleBasedStrategy(BaseStrategy):
 
         return score >= threshold
 
-    def evaluate_query(
+    async def evaluate_query(
         self,
         agent_id: str,
         query_text: str,

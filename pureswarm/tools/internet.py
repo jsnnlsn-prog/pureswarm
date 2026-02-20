@@ -18,7 +18,8 @@ from pathlib import Path
 from typing import Optional, Dict, Any, List
 from dataclasses import dataclass
 
-from .vault import SovereignVault, Credential
+from .
+vault import SovereignVault, Credential
 from .browser import BrowserAutomation, EmailCreator, PlatformRegistrar, set_phone_service
 from .http_client import ShinobiHTTPClient, VeniceAIClient
 from .email_client import ShinobiEmailClient, EmailConfig, EMAIL_PROVIDERS, EmailTemplates
@@ -49,23 +50,28 @@ class InternetAccess:
         self._is_triad = is_triad
         self._data_dir = data_dir or Path("data")
 
-        # Only initialize tools for Triad members
+        # Core tools available to all
+        self._vault = SovereignVault(self._data_dir)
+        self._http = ShinobiHTTPClient(self._data_dir)
+
+        # Venice AI for intelligent reasoning - NOW AVAILABLE TO ALL
+        venice_key = os.getenv("VENICE_API_KEY", "")
+        if venice_key:
+            self._venice = VeniceAIClient(venice_key, self._http)
+        else:
+            self._venice = None
+
+        # Only initialize advanced tools for Triad members
         if is_triad:
-            self._vault = SovereignVault(self._data_dir)
-            self._http = ShinobiHTTPClient(self._data_dir)
             self._browser: Optional[BrowserAutomation] = None
             self._email_client: Optional[ShinobiEmailClient] = None
 
-            # Venice AI for intelligent task analysis
-            venice_key = os.getenv("VENICE_API_KEY", "")
             if venice_key:
-                self._venice = VeniceAIClient(venice_key, self._http)
                 # AI-powered CAPTCHA solving - NO human services
                 self._captcha_solver = VisionCaptchaSolver(venice_key, self._http, self._data_dir)
                 self._audio_solver = AudioCaptchaSolver(venice_key, self._http)
                 self._captcha_integrator = BrowserCaptchaIntegration(self._captcha_solver, self._audio_solver)
             else:
-                self._venice = None
                 self._captcha_solver = None
                 self._audio_solver = None
                 self._captcha_integrator = None
@@ -73,11 +79,8 @@ class InternetAccess:
             # Phone verification (Real SIM preferred, Twilio fallback)
             self._phone_service = PhoneVerificationService(self._data_dir)
         else:
-            self._vault = None
-            self._http = None
             self._browser = None
             self._email_client = None
-            self._venice = None
             self._captcha_solver = None
             self._audio_solver = None
             self._captcha_integrator = None

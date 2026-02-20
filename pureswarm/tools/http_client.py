@@ -8,7 +8,7 @@ import json
 from typing import Optional, Dict, Any, List
 from pathlib import Path
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 logger = logging.getLogger("pureswarm.tools.http_client")
 
@@ -153,9 +153,7 @@ class ShinobiHTTPClient:
                 # Handle rate limiting
                 if response.status_code == 429:
                     retry_after = int(response.headers.get("Retry-After", 60))
-                    self._rate_limits[domain] = datetime.now(timezone.utc).replace(
-                        second=datetime.now(timezone.utc).second + retry_after
-                    )
+                    self._rate_limits[domain] = datetime.now(timezone.utc) + timedelta(seconds=retry_after)
                     logger.warning("Rate limited by %s, retry after %ds", domain, retry_after)
                     await asyncio.sleep(retry_after)
                     continue

@@ -45,6 +45,11 @@ class MemoryBackend(ABC):
         ...
 
     @abstractmethod
+    async def delete_tenets(self, ids: list[str], *, _auth: object = None) -> None:
+        """Delete specific tenets. Requires CONSENSUS_GUARD auth."""
+        ...
+
+    @abstractmethod
     async def reset(self) -> None:
         """Reset or initialize the memory store."""
         ...
@@ -120,7 +125,42 @@ class SharedMemory(MemoryBackend):
                     details={"tenet_id": tenet.id, "text": tenet.text},
                 )
             )
-        logger.info("Tenet adopted: %s", tenet.text)
+    async def delete_tenets(
+        self,
+        ids: list[str],
+        *,
+        _auth: object = None,
+    ) -> None:
+        """Delete specific tenets. Only callable with the CONSENSUS_GUARD."""
+        if _auth is not CONSENSUS_GUARD:
+            raise PermissionError(
+                "SharedMemory.delete_tenets may only be called by the "
+                "consensus protocol."
+            )
+        
+        if not ids:
+            return
+
+        async with self._lock:
+            await asyncio.to_thread(self._archive_current)
+            tenets_raw = await asyncio.to_thread(self._read_json)
+            initial_count = len(tenets_raw)
+            # Filter out deleted IDs
+            tenets_filtered = [t for t in tenets_raw if t.get("id") not in ids]
+            
+            if len(tenets_filtered) < initial_count:
+                await asyncio.to_thread(self._write_json, tenets_filtered)
+                deleted_count = initial_count - len(tenets_filtered)
+                await self._audit.log(
+                    AuditEntry(
+                        agent_id="consensus_protocol",
+                        action="tenets_deleted",
+                        details={"deleted_ids": ids, "count": deleted_count},
+                    )
+                )
+                logger.info("Tenets deleted: %d (requested %d)", deleted_count, len(ids))
+            else:
+                logger.debug("Delete requested for non-existent IDs: %s", ids)
 
     # ------------------------------------------------------------------
     # Reset (for simulation reruns)
@@ -263,7 +303,51 @@ class RedisMemory(MemoryBackend):
                 )
             )
 
-        logger.info("Tenet adopted (Redis): %s", tenet.text)
+    async def delete_tenets(
+        self,
+        ids: list[str],
+        *,
+        _auth: object = None,
+    ) -> None:
+        """Delete specific tenets from Redis. Only callable with the CONSENSUS_GUARD."""
+        if _auth is not CONSENSUS_GUARD:
+            raise PermissionError(
+                "RedisMemory.delete_tenets may only be called by the "
+                "consensus protocol."
+            )
+        
+        if not ids:
+            return
+
+        async with self._lock:
+            # Archive current state
+            await self._archive_current()
+
+            # Delete from Redis HASH
+            deleted_count = await self._redis.hdel(self.TENETS_KEY, *ids)
+
+            # Audit log via Redis Stream
+            await self._redis.xadd(
+                self.AUDIT_KEY,
+                {
+                    "agent_id": "consensus_protocol",
+                    "action": "tenets_deleted",
+                    "deleted_ids": json.dumps(ids),
+                    "count": str(deleted_count),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                },
+            )
+
+            # Also log to local audit logger
+            await self._audit.log(
+                AuditEntry(
+                    agent_id="consensus_protocol",
+                    action="tenets_deleted",
+                    details={"deleted_ids": ids, "count": deleted_count},
+                )
+            )
+
+        logger.info("Tenets deleted from Redis: %d (requested %d)", deleted_count, len(ids))
 
     # ------------------------------------------------------------------
     # Reset (for simulation reruns)

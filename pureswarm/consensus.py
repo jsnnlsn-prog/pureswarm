@@ -11,7 +11,7 @@ import logging
 from datetime import datetime, timezone
 
 from .memory import SharedMemory, CONSENSUS_GUARD
-from .models import AuditEntry, Message, MessageType, Proposal, ProposalStatus, Tenet
+from .models import AuditEntry, Message, MessageType, Proposal, ProposalAction, ProposalStatus, Tenet
 from .security import AuditLogger, LobstertailScanner
 
 logger = logging.getLogger("pureswarm.consensus")
@@ -107,19 +107,39 @@ class ConsensusProtocol:
 
             if ratio >= self._threshold:
                 proposal.status = ProposalStatus.ADOPTED
-                tenet = Tenet(
-                    text=proposal.tenet_text,
-                    proposed_by=proposal.proposed_by,
-                    adopted_at=datetime.now(timezone.utc),
-                    votes_for=yes,
-                    votes_against=no,
-                )
-                await self._memory.write_tenet(tenet, _auth=CONSENSUS_GUARD)
-                adopted.append(tenet)
-                logger.info(
-                    "Proposal %s ADOPTED (%d/%d): %s",
-                    proposal.id, yes, yes + no, proposal.tenet_text,
-                )
+                
+                # Handle different actions
+                if proposal.action == ProposalAction.DELETE:
+                    await self._memory.delete_tenets(proposal.target_ids, _auth=CONSENSUS_GUARD)
+                    logger.info("Proposal %s ADOPTED: DELETED tenets %s", proposal.id, proposal.target_ids)
+                
+                elif proposal.action == ProposalAction.FUSE:
+                    # Delete targets first
+                    await self._memory.delete_tenets(proposal.target_ids, _auth=CONSENSUS_GUARD)
+                    # Then add the new fused tenet
+                    tenet = Tenet(
+                        text=proposal.tenet_text,
+                        proposed_by=proposal.proposed_by,
+                        adopted_at=datetime.now(timezone.utc),
+                        votes_for=yes,
+                        votes_against=no,
+                        supersedes=proposal.target_ids
+                    )
+                    await self._memory.write_tenet(tenet, _auth=CONSENSUS_GUARD)
+                    adopted.append(tenet)
+                    logger.info("Proposal %s ADOPTED: FUSED tenets %s into new tenet", proposal.id, proposal.target_ids)
+
+                else:  # Default: ADD
+                    tenet = Tenet(
+                        text=proposal.tenet_text,
+                        proposed_by=proposal.proposed_by,
+                        adopted_at=datetime.now(timezone.utc),
+                        votes_for=yes,
+                        votes_against=no,
+                    )
+                    await self._memory.write_tenet(tenet, _auth=CONSENSUS_GUARD)
+                    adopted.append(tenet)
+                    logger.info("Proposal %s ADOPTED (%d/%d): %s", proposal.id, yes, yes + no, proposal.tenet_text)
             else:
                 proposal.status = ProposalStatus.REJECTED
                 logger.info(

@@ -10,8 +10,8 @@ Autonomous agent swarm platform where intelligence emerges through democratic co
 
 | Metric | Value | Primary Environment |
 |-----------|-----------|----------------------|
-| **Agents** | **77** | `pureswarm-node` |
-| **Tenets** | **127** | `pureswarm-node` |
+| **Agents** | **157** | `pureswarm-node` |
+| **Tenets** | **588** | `pureswarm-node` |
 | **Consensus** | 93.3% Unity | Evolved Merit |
 | **Bridge** | **Active** | `pureswarm-test` |
 
@@ -21,7 +21,7 @@ Autonomous agent swarm platform where intelligence emerges through democratic co
 
 ### 1. The Mind (`pureswarm-node`)
 
-The primary production environment hosting the 77-agent swarm. This is where the "intellectual growth" of the hive lives in `data/`.
+The primary production environment hosting the 157-agent swarm. This is where the "intellectual growth" of the hive lives in `data/`.
 
 ### 2. The Bridge (`pureswarm-test`)
 

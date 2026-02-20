@@ -11,7 +11,7 @@ class BaseStrategy(ABC):
     """Interface that all reasoning strategies must implement."""
 
     @abstractmethod
-    def generate_proposal(
+    async def generate_proposal(
         self,
         agent_id: str,
         round_number: int,
@@ -19,11 +19,12 @@ class BaseStrategy(ABC):
         seed_prompt: str,
         role: AgentRole = AgentRole.RESIDENT,
         prophecy: str | None = None,
+        specialization: str | None = None,
     ) -> str | None:
         """Return proposed tenet text, or None to skip this round."""
 
     @abstractmethod
-    def evaluate_proposal(
+    async def evaluate_proposal(
         self,
         agent_id: str,
         proposal: Proposal,
@@ -35,7 +36,7 @@ class BaseStrategy(ABC):
         """Return True to vote YES, False to vote NO."""
 
     @abstractmethod
-    def evaluate_query(
+    async def evaluate_query(
         self,
         agent_id: str,
         query_text: str,

@@ -6,8 +6,14 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import sys
 from pathlib import Path
+from dotenv import load_dotenv
+
+import argparse
+
+load_dotenv()
 
 try:
     import tomllib
@@ -49,7 +55,16 @@ async def main() -> None:
     setup_logging()
     logger = logging.getLogger("pureswarm.cli")
 
-    config_path = Path("config.toml")
+    parser = argparse.ArgumentParser(description="PureSwarm Simulation Runner")
+    parser.add_argument("--emergency", action="store_true", help="Enable Emergency Mode")
+    parser.add_argument("--config", type=str, default="config.toml", help="Path to config file")
+    args = parser.parse_args()
+
+    if args.emergency:
+        os.environ["EMERGENCY_MODE"] = "TRUE"
+        logger.info("CORE COMMAND: EMERGENCY MODE SIGNAL DETECTED")
+
+    config_path = Path(args.config)
     if not config_path.exists():
         logger.error("config.toml not found in current directory")
         sys.exit(1)

@@ -44,6 +44,12 @@ class ProposalStatus(str, Enum):
     EXPIRED = "expired"
 
 
+class ProposalAction(str, Enum):
+    ADD = "add"
+    FUSE = "fuse"
+    DELETE = "delete"
+
+
 class QueryStatus(str, Enum):
     PENDING = "pending"
     DELIBERATING = "deliberating"
@@ -103,6 +109,7 @@ class Tenet(BaseModel):
     source_proposal_id: str | None = None
     votes_for: int = 0
     votes_against: int = 0
+    supersedes: list[str] = Field(default_factory=list)  # IDs of tenets replaced by this one
 
 
 # ---------------------------------------------------------------------------
@@ -113,6 +120,8 @@ class Proposal(BaseModel):
     id: str = Field(default_factory=_new_id) # Initially random, but can be set deterministically
     tenet_text: str
     proposed_by: str
+    action: ProposalAction = ProposalAction.ADD
+    target_ids: list[str] = Field(default_factory=list)  # Tenet IDs for FUSE/DELETE
     status: ProposalStatus = ProposalStatus.PENDING
     votes: dict[str, bool] = Field(default_factory=dict)  # agent_id -> yes/no
     created_round: int = 0

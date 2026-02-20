@@ -12,10 +12,12 @@ from .memory import SharedMemory
 from .message_bus import MessageBus
 from .models import (
     AgentIdentity,
+    AgentRole,
     AuditEntry,
     Message,
     MessageType,
     Proposal,
+    ProposalAction,
     ProposalStatus,
 )
 from .prophecy import ProphecyEngine
@@ -48,8 +50,14 @@ class Agent:
         max_votes_per_round: int = 5,
         scanner: LobstertailScanner | None = None,
         prophecy_engine: Optional[ProphecyEngine] = None,
+        squad_id: str | None = None,
+        is_researcher: bool = False,
     ) -> None:
+        self.id = identity.id
         self.identity = identity
+        self.squad_id = squad_id
+        self.is_researcher = is_researcher or (identity.role == AgentRole.TRIAD_MEMBER)
+        self.momentum = 0.0 # Consolidation Momentum
         self._strategy = strategy
         self._bus = message_bus
         self._memory = shared_memory
@@ -61,8 +69,7 @@ class Agent:
         self._scanner = scanner
         self._prophecy_engine = prophecy_engine
 
-        # Identity Fusion & Internet Tools (only for Triad)
-        from .models import AgentRole
+        # Identity Fusion & Internet Tools (InternetAccess handles role-based tool gating)
         from .tools.internet import InternetAccess
         is_triad = self.identity.role == AgentRole.TRIAD_MEMBER
         self._internet = InternetAccess(self.id, is_triad)
@@ -156,6 +163,10 @@ class Agent:
         pending = self._consensus.pending_proposals()
         votes_this_round = 0
         
+        # EMERGENCY MODE & AUTHORITY CHECK
+        emergency = os.getenv("EMERGENCY_MODE") == "TRUE"
+        can_use_llm = self.is_researcher # Triad is auto-researcher in __init__
+        
         # Get latest prophecy text for strategy
         prophecy_text = None
         if self._prophecy_engine:
@@ -171,11 +182,16 @@ class Agent:
             if votes_this_round >= self._max_votes:
                 break
 
-            vote = self._strategy.evaluate_proposal(
-                self.id, proposal, tenets, self._seed_prompt,
-                role=self.identity.role,
-                prophecy=prophecy_text
-            )
+            # In Emergency Mode, non-researchers use RuleBased fallback for evaluation
+            if emergency and not can_use_llm:
+                # Mock a low-resource vote based on resident baseline
+                vote = 1 if self.role == AgentRole.RESIDENT else 0
+            else:
+                vote = await self._strategy.evaluate_proposal(
+                    self.id, proposal, tenets, self._seed_prompt,
+                    role=self.identity.role,
+                    prophecy=prophecy_text
+                )
             accepted = self._consensus.cast_vote(self.id, proposal.id, vote)
             if accepted:
                 votes_this_round += 1
@@ -206,21 +222,54 @@ class Agent:
 
         # 3. ACT — maybe propose a new tenet
         proposals_made = 0
-        if proposals_made < self._max_proposals:
-            text = self._strategy.generate_proposal(
-                self.id, round_number, tenets, self._seed_prompt,
-                role=self.identity.role,
-                prophecy=prophecy_text
-            )
+        if stats["proposals_made"] < self._max_proposals:
+            # STOP ADDITIVE GROWTH IN EMERGENCY MODE
+            if emergency and not can_use_llm:
+                text = None
+            else:
+                text = await self._strategy.generate_proposal(
+                    self.id, round_number, tenets, self._seed_prompt,
+                    role=self.identity.role,
+                    prophecy=prophecy_text,
+                    specialization=self.identity.specialization
+                )
+            
             if text is not None:
                 # Security self-check
                 if self._scanner and not self._scanner.scan(text):
                     logger.warning("Agent %s suppressed malicious proposal locally", self.id)
                     self._lifetime_memory.append(f"Round {round_number}: Proposal blocked by security intent.")
                 else:
+                    action = ProposalAction.ADD
+                    target_ids = []
+                    tenet_text = text
+
+                    # Parse FUSE [id1, id2] -> "New Text"
+                    if text.startswith("FUSE ["):
+                        try:
+                            parts = text.split("] ->", 1)
+                            id_part = parts[0].replace("FUSE [", "").strip()
+                            target_ids = [i.strip() for i in id_part.split(",")]
+                            tenet_text = parts[1].strip().strip('"')
+                            action = ProposalAction.FUSE
+                        except Exception as e:
+                            logger.error("Failed to parse FUSE proposal: %s", e)
+                    
+                    # Parse DELETE [id1]
+                    elif text.startswith("DELETE ["):
+                        try:
+                            id_part = text.replace("DELETE [", "").replace("]", "").strip()
+                            target_ids = [i.strip() for i in id_part.split(",")]
+                            tenet_text = f"Deletion of redundant tenets: {', '.join(target_ids)}"
+                            action = ProposalAction.DELETE
+                        except Exception as e:
+                            logger.error("Failed to parse DELETE proposal: %s", e)
+
                     proposal = Proposal(
-                        tenet_text=text,
+                        tenet_text=tenet_text,
                         proposed_by=self.id,
+                        action=action,
+                        target_ids=target_ids,
                         created_round=round_number,
                     )
                     if self._consensus.submit_proposal(proposal):

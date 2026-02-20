@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import random
 import uuid
+import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, List
@@ -18,6 +21,8 @@ from .message_bus import MessageBus
 from .models import AgentIdentity, RoundSummary, SimulationReport, Tenet, ProposalStatus, AgentRole, Message, MessageType, AuditEntry, ChronicleCategory
 from .security import AuditLogger, LobstertailScanner, SandboxChecker
 from .strategies.rule_based import RuleBasedStrategy
+from .strategies.llm_driven import LLMDrivenStrategy
+from .tools.http_client import VeniceAIClient, ShinobiHTTPClient
 from .prophecy import ProphecyEngine
 from .execution import ExecutionManager
 from .evolution import EvolutionLayer
@@ -58,6 +63,26 @@ class Simulation:
         # Load Sovereign Key for Prophecy
         self._sovereign_key = os.getenv("PURES_SOVEREIGN_PASSPHRASE", "SOVEREIGN_KEY_FALLBACK")
         self._prophecy_engine = ProphecyEngine(self._sovereign_key)
+
+        # Emergency Mode Deployment
+        self._emergency_mode = os.getenv("EMERGENCY_MODE") == "TRUE"
+        if self._emergency_mode:
+            logger.warning("!!! EMERGENCY MODE ACTIVE: NEURAL PRUNING INITIALIZED !!!")
+            os.environ["CONSOLIDATION_MODE"] = "TRUE" # Sync with scanner
+
+        # Initialize LLM Strategy if key is available
+        self._venice_key = os.getenv("VENICE_API_KEY", "")
+        self._llm_strategy = None
+        if self._venice_key:
+            # We'll use a dedicated client for the simulation level if needed,
+            # but usually agents use their own InternetAccess.
+            # However, for strategy consistency, we'll provide a shared one for non-triad reasoning.
+            from .tools.internet import InternetAccess
+            # Temporary internal internet access just for strategy initialization
+            stub_internet = InternetAccess("simulation_system", False, data_dir=self._data_dir)
+            if stub_internet._venice:
+                self._llm_strategy = LLMDrivenStrategy(stub_internet._venice)
+                logger.info("Cognitive Upgrade: LLMDrivenStrategy initialized for all agents.")
 
         # Infrastructure
         self._audit = AuditLogger(self._data_dir / "logs")
@@ -140,9 +165,17 @@ class Simulation:
                 is_triad = i < 3
                 if is_triad:
                     role = AgentRole.TRIAD_MEMBER
+                
+                # SQUAD PARTITIONING
+                squads = ["Alpha", "Beta", "Gamma"]
+                squad_id = squads[i % 3] if self._emergency_mode else None
+                # Mark first 2 Residents per squad as researchers (Total 6)
+                is_researcher = (3 <= i < 9) if self._emergency_mode else False
 
                 identity = AgentIdentity(name=name, role=role)
-                strategy = RuleBasedStrategy()
+                # Strategy: LLM-driven if available, else Rule-based
+                strategy = self._llm_strategy if self._llm_strategy else RuleBasedStrategy()
+                
                 agent = Agent(
                     identity=identity,
                     strategy=strategy,
@@ -154,7 +187,9 @@ class Simulation:
                     max_proposals_per_round=max_proposals_per_round,
                     max_votes_per_round=max_votes_per_round,
                     scanner=self._scanner,
-                    prophecy_engine=self._prophecy_engine if role == AgentRole.TRIAD_MEMBER else None
+                    prophecy_engine=self._prophecy_engine if role == AgentRole.TRIAD_MEMBER else None,
+                    squad_id=squad_id,
+                    is_researcher=is_researcher
                 )
                 self._agents.append(agent)
                 if is_triad:
@@ -187,16 +222,28 @@ class Simulation:
         try:
             fitness_data = json.loads(fitness_file.read_text())
 
-            for agent_id, fitness_info in fitness_data.items():
+            for i, (agent_id, fitness_info) in enumerate(fitness_data.items()):
                 # Determine role from traits
                 traits = fitness_info.get("traits", {})
                 is_triad = traits.get("role") == "triad"
                 role = AgentRole.TRIAD_MEMBER if is_triad else AgentRole.RESIDENT
 
+                # SQUAD PARTITIONING (Emergency Mode)
+                squads = ["Alpha", "Beta", "Gamma"]
+                squad_id = squads[i % 3] if self._emergency_mode else None
+                # Grant researcher status to first 6 non-triad agents found
+                is_researcher = (3 <= i < 9) if self._emergency_mode else False
+
                 # Create agent identity
                 name = f"Agent-{agent_id[:8]}"
                 identity = AgentIdentity(id=agent_id, name=name, role=role)
-                strategy = RuleBasedStrategy()
+                
+                # Rule: Triad members use the creative LLM strategy; residents use Rule-Based for stability
+                # UNLESS they are researchers in Emergency Mode
+                if is_triad or is_researcher:
+                    strategy = self._llm_strategy if self._llm_strategy else RuleBasedStrategy()
+                else:
+                    strategy = RuleBasedStrategy()
 
                 # Recreate agent
                 agent = Agent(
@@ -210,7 +257,9 @@ class Simulation:
                     max_proposals_per_round=max_proposals_per_round,
                     max_votes_per_round=max_votes_per_round,
                     scanner=self._scanner,
-                    prophecy_engine=self._prophecy_engine if is_triad else None
+                    prophecy_engine=self._prophecy_engine if is_triad else None,
+                    squad_id=squad_id,
+                    is_researcher=is_researcher
                 )
 
                 agents.append(agent)
@@ -230,6 +279,20 @@ class Simulation:
             raise
 
         return agents
+
+    def _heartbeat(self, round_num: int, status: str) -> None:
+        """Update a heartbeat file for external monitoring (Requirement #4)."""
+        heartbeat_file = self._data_dir / ".heartbeat"
+        try:
+            data = {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "round": round_num,
+                "status": status,
+                "pid": os.getpid()
+            }
+            heartbeat_file.write_text(json.dumps(data), encoding="utf-8")
+        except Exception:
+            pass
 
     async def _run_workshop(self, round_num: int) -> None:
         """Run workshop phase: collective problem-solving on real-world challenges.
@@ -329,6 +392,16 @@ class Simulation:
 
     async def run(self) -> SimulationReport:
         """Execute the full simulation and return the report."""
+        # Sync metrics before starting
+        try:
+            # Absolute path to python in the environment
+            subprocess.run([sys.executable, "scripts/sync_metrics.py"], check=False)
+        except Exception as e:
+            logger.warning("Failed to sync metrics before simulation: %s", e)
+
+        # Ensure baseline pillars exist
+        await self._initialize_pillars()
+
         logger.info(
             "=== PureSwarm Simulation Starting ===\n"
             "  Agents: %d | Rounds: %d\n"
@@ -344,9 +417,17 @@ class Simulation:
         await self._initialize_pillars()
 
         for round_num in range(1, self._num_rounds + 1):
-            summary = await self._run_round(round_num)
-            self._report.rounds.append(summary)
-            self._log_round_summary(round_num, summary)
+            # HEARTBEAT: Signal that the simulation is alive
+            self._heartbeat(round_num, "Starting round")
+            
+            try:
+                # WATCHDOG: Force round timeout at 5 minutes to prevent absolute hangs
+                summary = await asyncio.wait_for(self._run_round(round_num), timeout=300.0)
+                self._report.rounds.append(summary)
+                self._log_round_summary(round_num, summary)
+            except asyncio.TimeoutError:
+                logger.error("!!! ROUND %d STALLED !!! Watchdog triggered. Force-advancing simulation.", round_num)
+                self._heartbeat(round_num, "STALLED - Watchdog triggered")
             
             # Check for demographic growth triggers (Requirement #10)
             await self._check_growth_triggers(round_num)
@@ -389,16 +470,24 @@ class Simulation:
                 logger.error("Error reading prophecy file: %s", e)
 
         # Phase 1: Workshop - Collective problem-solving on real-world challenges
-        await self._run_workshop(round_num)
+        # STOP WORKSHOPS IN EMERGENCY MODE TO FOCUS ON CONSOLIDATION
+        if self._emergency_mode:
+            logger.info("Emergency Mode: Workshops suppressed.")
+        else:
+            await self._run_workshop(round_num)
 
         # Shuffle agent order for fairness
         order = list(self._agents)
         rng = random.Random(round_num)
         rng.shuffle(order)
 
-        # Each agent takes their turn
-        for agent in order:
-            stats = await agent.run_round(round_num)
+        # Each agent takes their turn in parallel
+        # (Triad-only LLM usage prevents API rate limiting)
+        self._heartbeat(round_num, f"Agents thinking ({len(order)} parallel cognitive tasks)")
+        tasks = [agent.run_round(round_num) for agent in order]
+        results = await asyncio.gather(*tasks)
+
+        for stats in results:
             total_proposals += stats["proposals_made"]
             total_votes += stats["votes_cast"]
 
@@ -414,11 +503,14 @@ class Simulation:
 
             # EVOLUTION: Broadcast joy for every adopted tenet
             # The whole hive feels the success
+            is_consolidation = (tenet.action in [ProposalAction.FUSE, ProposalAction.DELETE])
+            intensity = 2.5 if (self._emergency_mode and is_consolidation) else 1.2
+            
             await self._evolution.dopamine.broadcast_joy(
                 source_agent=tenet.proposed_by,
                 mission_id=tenet.id,
-                intensity=1.2,
-                message=f"Tenet adopted: '{tenet.text[:50]}...' The hive grows stronger."
+                intensity=intensity,
+                message=f"Consolidation success! {tenet.action.value}: '{tenet.text[:50]}...'"
             )
 
             # Track fitness for the proposer
@@ -650,7 +742,7 @@ class Simulation:
         for _ in range(count):
             agent_id = str(uuid.uuid4())[:8]
             identity = AgentIdentity(id=agent_id, name=f"Resident-{agent_id}")
-            strategy = RuleBasedStrategy()
+            strategy = self._llm_strategy if self._llm_strategy else RuleBasedStrategy()
 
             # Inherit traits from parent if specified
             if parent_agent:
@@ -659,6 +751,10 @@ class Simulation:
             else:
                 # Register in fitness tracker even without parent (Merit Emergence, Echo Reward, etc.)
                 self._evolution.fitness.get_or_create(agent_id)
+
+            # SQUAD PARTITIONING
+            squads = ["Alpha", "Beta", "Gamma"]
+            squad_id = squads[len(self._agents) % 3] if self._emergency_mode else None
 
             agent = Agent(
                 identity=identity,
@@ -669,6 +765,8 @@ class Simulation:
                 audit_logger=self._audit,
                 seed_prompt=self._seed_prompt,
                 scanner=self._scanner,
+                squad_id=squad_id,
+                is_researcher=False
             )
             self._agents.append(agent)
             self._bus.subscribe(agent.id)
