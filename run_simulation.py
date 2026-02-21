@@ -58,6 +58,8 @@ async def main() -> None:
     parser = argparse.ArgumentParser(description="PureSwarm Simulation Runner")
     parser.add_argument("--emergency", action="store_true", help="Enable Emergency Mode")
     parser.add_argument("--config", type=str, default="config.toml", help="Path to config file")
+    parser.add_argument("--num_rounds", type=int, help="Number of rounds to run")
+    parser.add_argument("--num_agents", type=int, help="Number of agents in the simulation")
     args = parser.parse_args()
 
     if args.emergency:
@@ -88,8 +90,8 @@ async def main() -> None:
     logger.info("Memory backend initialized: %s", type(memory_backend).__name__)
 
     sim = Simulation(
-        num_agents=sim_cfg.get("num_agents", 5),
-        num_rounds=sim_cfg.get("num_rounds", 20),
+        num_agents=args.num_agents or sim_cfg.get("num_agents", 5),
+        num_rounds=args.num_rounds or sim_cfg.get("num_rounds", 20),
         seed_prompt=seed_prompt,
         approval_threshold=con_cfg.get("approval_threshold", 0.5),
         proposal_expiry_rounds=con_cfg.get("proposal_expiry_rounds", 3),
