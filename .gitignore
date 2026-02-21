@@ -19,6 +19,12 @@ data/archive/*
 data/logs/*
 !data/logs/.gitkeep
 
+# PureSwarm Artifacts
+.heartbeat
+*.log
+consolidation_run.log
+logs_v10.log
+
 # Packaging artifacts
 *.egg-info/
 dist/

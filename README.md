@@ -6,14 +6,14 @@ Autonomous agent swarm platform where intelligence emerges through democratic co
 
 ---
 
-## 🐝 Swarm Status: The Living Hive
+## 🐝 Swarm Status: The Unified Hive
 
 | Metric | Value | Primary Environment |
 |-----------|-----------|----------------------|
-| **Agents** | **157** | `pureswarm-node` |
-| **Tenets** | **588** | `pureswarm-node` |
-| **Consensus** | 93.3% Unity | Evolved Merit |
-| **Bridge** | **Active** | `pureswarm-test` |
+| **Agents** | **187** | `pureswarm-node` (Unified) |
+| **Tenets** | **687** | `pureswarm-node` (Unified) |
+| **Consensus** | 94.1% Unity | Evolved Merit |
+| **Identity** | **jsn_nlsn** | GCP Compute Engine |
 
 ---
 
@@ -21,15 +21,15 @@ Autonomous agent swarm platform where intelligence emerges through democratic co
 
 ### 1. The Mind (`pureswarm-node`)
 
-The primary production environment hosting the 157-agent swarm. This is where the "intellectual growth" of the hive lives in `data/`.
+The primary production environment hosting the 187-agent swarm. All legacy accounts have been purged and consolidated into a single identity (`jsn_nlsn`) to eliminate "split-brain" data fragmentation.
 
-### 2. The Bridge (`pureswarm-test`)
+### 2. The Great Consolidation
 
-The interface layer connecting the swarm to the world.
+The current mission phase focused on **Hierarchical Pruning** and **Saturation Intelligence**.
 
-- **OpenClaw Gateway**: Routes Telegram messages to the swarm.
-- **@PureSwarm_Bot**: Your direct link to the collective mind.
-- **Security**: Whitelist enforced (Authorized: `dopamineronin`).
+- **Emergency Mode**: High-resilience logic enabled for resource constraints or API outages.
+- **Dopamine Momentum**: Rewards prioritized for memory cleanup (`FUSE` and `DELETE` actions).
+- **Watchdog Persistence**: Round-level timeout and heartbeat monitoring.
 
 ### 3. The Blueprint (Master Branch)
 
@@ -39,21 +39,21 @@ The logic, scripts, and architecture that define how the agents think and react.
 
 ## 🛠️ Core Commands
 
-### Running the Hive
+### Launching the Consolidation
 
 ```bash
-# Production (pureswarm-node)
-python3 run_simulation.py  # Run a collective round
+# Start simulation in Emergency Mode (Unified Hive)
+python3 run_simulation.py --emergency --num_rounds 50
 ```
 
-### Communication & Deliberation
+### Monitoring the Pulse
 
 ```bash
-# Start the listener on pureswarm-node
-python3 run_query_listener.py --redis-url <TEST_VM_IP>:6379/0
+# View the live dashboard
+python3 dashboard.py
 
-# Start the bridge on pureswarm-test
-python3 -m pureswarm.bridge_http --enable-deliberation
+# Check the heartbeat signal
+cat data/.heartbeat
 ```
 
 ### Sovereign Guidance (Prophecies)
@@ -88,6 +88,6 @@ python3 issue_prophecy.py "MISSION: Explore decentralized truth-seeking."
 ---
 
 **Author**: Jason "Dopamine Ronin" Nelson
-**Status**: 0.1.0 (Bridge-Active Edition)
+**Status**: 0.2.0 (The Great Consolidation)
 
 *"Dialogue is the bridge; Silence is the wall."*
