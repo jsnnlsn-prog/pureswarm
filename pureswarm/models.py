@@ -110,6 +110,7 @@ class Tenet(BaseModel):
     votes_for: int = 0
     votes_against: int = 0
     supersedes: list[str] = Field(default_factory=list)  # IDs of tenets replaced by this one
+    source_action: Optional[ProposalAction] = None
 
 
 # ---------------------------------------------------------------------------

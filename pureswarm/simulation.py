@@ -503,14 +503,15 @@ class Simulation:
 
             # EVOLUTION: Broadcast joy for every adopted tenet
             # The whole hive feels the success
-            is_consolidation = (tenet.action in [ProposalAction.FUSE, ProposalAction.DELETE])
+            is_consolidation = (tenet.source_action in [ProposalAction.FUSE, ProposalAction.DELETE])
             intensity = 2.5 if (self._emergency_mode and is_consolidation) else 1.2
             
+            action_val = tenet.source_action.value if tenet.source_action else "added"
             await self._evolution.dopamine.broadcast_joy(
                 source_agent=tenet.proposed_by,
                 mission_id=tenet.id,
                 intensity=intensity,
-                message=f"Consolidation success! {tenet.action.value}: '{tenet.text[:50]}...'"
+                message=f"Consolidation success! {action_val}: '{tenet.text[:50]}...'"
             )
 
             # Track fitness for the proposer

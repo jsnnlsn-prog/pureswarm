@@ -123,7 +123,8 @@ class ConsensusProtocol:
                         adopted_at=datetime.now(timezone.utc),
                         votes_for=yes,
                         votes_against=no,
-                        supersedes=proposal.target_ids
+                        supersedes=proposal.target_ids,
+                        source_action=proposal.action
                     )
                     await self._memory.write_tenet(tenet, _auth=CONSENSUS_GUARD)
                     adopted.append(tenet)
@@ -136,6 +137,7 @@ class ConsensusProtocol:
                         adopted_at=datetime.now(timezone.utc),
                         votes_for=yes,
                         votes_against=no,
+                        source_action=proposal.action
                     )
                     await self._memory.write_tenet(tenet, _auth=CONSENSUS_GUARD)
                     adopted.append(tenet)
