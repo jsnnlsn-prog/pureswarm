@@ -18,8 +18,7 @@ from pathlib import Path
 from typing import Optional, Dict, Any, List
 from dataclasses import dataclass
 
-from .
-vault import SovereignVault, Credential
+from .vault import SovereignVault, Credential
 from .browser import BrowserAutomation, EmailCreator, PlatformRegistrar, set_phone_service
 from .http_client import ShinobiHTTPClient, VeniceAIClient
 from .email_client import ShinobiEmailClient, EmailConfig, EMAIL_PROVIDERS, EmailTemplates
