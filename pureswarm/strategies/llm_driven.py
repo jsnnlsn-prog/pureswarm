@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import random
 import json
+import os
 from typing import Optional, List
 
 from ..models import Proposal, Tenet, AgentRole, QueryResponse
@@ -36,13 +37,14 @@ class LLMDrivenStrategy(BaseStrategy):
     ) -> str | None:
         """Use Venice AI to generate a novel tenet proposal."""
         
-        # Provide more context for consolidation if prophecy suggests it
-        is_consolidation = prophecy and any(kw in prophecy.lower() for kw in ["consolidation", "prune", "merge", "redundant"])
+        # Provide more context for consolidation if prophecy or environment suggests it
+        emergency = os.getenv("EMERGENCY_MODE") == "TRUE"
+        is_consolidation = emergency or (prophecy and any(kw in prophecy.lower() for kw in ["consolidation", "prune", "merge", "redundant"]))
         
         tenet_list = "\n".join([f"[{t.id}] {t.text}" for t in existing_tenets]) # Full list for identification
         
-        if is_consolidation and role == AgentRole.TRIAD_MEMBER:
-             prompt = f"""You are a Triad Member of the PureSwarm collective.
+        if is_consolidation and (role == AgentRole.TRIAD_MEMBER or role == AgentRole.RESEARCHER):
+             prompt = f"""You are a {role.value} of the PureSwarm collective.
 Your Agent ID is: {agent_id}
 Your Mission: THE GREAT CONSOLIDATION
 

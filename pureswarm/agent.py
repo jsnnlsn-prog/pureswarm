@@ -186,10 +186,13 @@ class Agent:
             if votes_this_round >= self._max_votes:
                 break
 
-            # In Emergency Mode, non-researchers use RuleBased fallback for evaluation
+            # In Emergency Mode, non-researchers use a rational fallback for evaluation
             if emergency and not can_use_llm:
-                # Mock a low-resource vote based on resident baseline
-                vote = 1 if self.identity.role == AgentRole.RESIDENT else 0
+                # Consolidation Requirement: Only vote YES for pruning actions
+                is_consolidation = proposal.action in [ProposalAction.FUSE, ProposalAction.DELETE]
+                vote = 1 if is_consolidation else 0
+                if not is_consolidation:
+                    logger.debug("Agent %s (Resident) rejected non-consolidation proposal: %s", self.id, proposal.id)
             else:
                 vote = await self._strategy.evaluate_proposal(
                     self.id, proposal, tenets, self._seed_prompt,

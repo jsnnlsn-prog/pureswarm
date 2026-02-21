@@ -4,7 +4,7 @@ import json
 import random
 from pathlib import Path
 from datetime import datetime
-from rich.console import Console
+from rich.console import Console, Group
 from rich.layout import Layout
 from rich.panel import Panel
 from rich.live import Live
@@ -48,7 +48,7 @@ class HiveHUD:
         """Render an ASCII grid representing the 187 agents."""
         grid = Table.grid(padding=0)
         # 187 agents -> ~17x11 grid
-        for _ in range(11):
+        for _ in range(17):
             grid.add_column()
         
         agents = []
@@ -119,12 +119,15 @@ class HiveHUD:
         # Sparkline logic
         spark = ""
         if HAS_PLOTILLE and len(self.history) > 1:
-            spark = "\n" + plotille.hist(self.history, height=5, width=30)
+            try:
+                spark = "\n" + plotille.hist(self.history, height=5, width=30)
+            except:
+                spark = "\n[red]Sparkline Error[/red]"
         
-        content = Text.assemble(
-            ("PRUNING_PHASE: RED_CONSOLIDATION\n", "bold yellow"),
+        content = Group(
+            Text("PRUNING_PHASE: RED_CONSOLIDATION\n", style="bold yellow"),
             table,
-            (spark if HAS_PLOTILLE else "\n[dim]Graphing unavailable (pip install plotille)[/dim]")
+            Text(spark if HAS_PLOTILLE else "\n[dim]Graphing unavailable[/dim]")
         )
         
         return Panel(content, title="[bold cyan]MISSION VITALS[/bold cyan]", border_style="cyan")
@@ -142,6 +145,8 @@ class HiveHUD:
                 pass
                 
         ticker = Text()
+        if not events:
+            ticker.append("Waiting for neural uplink...", style="dim")
         for e in events[-8:]:
             if "ADOPTED" in e:
                 ticker.append(" >> ", style="bold green")
@@ -153,7 +158,11 @@ class HiveHUD:
         return Panel(ticker, title="[bold green]ACTIVE UPLINK[/bold green]", border_style="green")
 
 def run_dashboard():
+    # Detect data dir relative to script
     data_dir = Path("data")
+    if not data_dir.exists():
+        data_dir = Path(__file__).parent.parent / "data"
+
     hud = HiveHUD(data_dir)
     
     layout = Layout()
@@ -179,10 +188,11 @@ def run_dashboard():
             layout["ticker"].update(hud.get_ticker())
             
             # Mission Progress
+            # Start from 687 tenets, goal is reduction
             reduction = max(0, 687 - hud.last_tenet_count)
             progress = (reduction / 500) * 100 if hud.last_tenet_count > 100 else 100
             
-            footer_text = f"CONSOLIDATION_PROGRESS: [bold green]{progress:.1f}%[/bold green] | STATUS: [blink bold green]RESEARCHING[/blink bold green]"
+            footer_text = f"CONSOLIDATION_PROGRESS: [bold green]{progress:.1f}%[/bold green] | STATUS: [blink bold green]ACTIVE PRUNING[/blink bold green]"
             layout["footer"].update(Panel(Align.center(Text.from_markup(footer_text)), border_style="white"))
             
             time.sleep(0.25)
