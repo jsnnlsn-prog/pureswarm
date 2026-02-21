@@ -18,7 +18,7 @@ from .chronicle import Chronicle
 from .consensus import ConsensusProtocol
 from .memory import SharedMemory, MemoryBackend, CONSENSUS_GUARD
 from .message_bus import MessageBus
-from .models import AgentIdentity, RoundSummary, SimulationReport, Tenet, ProposalStatus, AgentRole, Message, MessageType, AuditEntry, ChronicleCategory
+from .models import AgentIdentity, RoundSummary, SimulationReport, Tenet, ProposalStatus, AgentRole, Message, MessageType, AuditEntry, ChronicleCategory, ProposalAction
 from .security import AuditLogger, LobstertailScanner, SandboxChecker
 from .strategies.rule_based import RuleBasedStrategy
 from .strategies.llm_driven import LLMDrivenStrategy
