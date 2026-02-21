@@ -86,6 +86,10 @@ class Agent:
     def name(self) -> str:
         return self.identity.name
 
+    @property
+    def role(self) -> AgentRole:
+        return self.identity.role
+
     # ------------------------------------------------------------------
     # Main loop (called once per simulation round)
     # ------------------------------------------------------------------
@@ -185,7 +189,7 @@ class Agent:
             # In Emergency Mode, non-researchers use RuleBased fallback for evaluation
             if emergency and not can_use_llm:
                 # Mock a low-resource vote based on resident baseline
-                vote = 1 if self.role == AgentRole.RESIDENT else 0
+                vote = 1 if self.identity.role == AgentRole.RESIDENT else 0
             else:
                 vote = await self._strategy.evaluate_proposal(
                     self.id, proposal, tenets, self._seed_prompt,
