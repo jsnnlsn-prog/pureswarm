@@ -53,7 +53,6 @@ class Agent:
         squad_id: str | None = None,
         is_researcher: bool = False,
     ) -> None:
-        self.id = identity.id
         self.identity = identity
         self.squad_id = squad_id
         self.is_researcher = is_researcher or (identity.role == AgentRole.TRIAD_MEMBER)
