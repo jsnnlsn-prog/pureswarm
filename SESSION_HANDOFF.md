@@ -1,55 +1,121 @@
-# Session Handoff: The Great Consolidation
+# Session Handoff: Voting Context System
 
 **Date:** 2026-02-22
-**Status:** READY TO LAUNCH - Code fixed, waiting for execution
+**Status:** Phase 3 COMPLETE - Agents have historical awareness
 
 ---
 
 ## TL;DR
 
-You're inheriting a 255-agent swarm with 908 tenets that need to be pruned to ~200. The consolidation system (Squad Warfare) is fully wired but hasn't executed yet because Venice API was burning $5 on failed 402 calls. I fixed it - Anthropic is now primary. Run this:
+Agents now vote with historical context - chronicle history, personal memory, and voting records inform their decisions. **The auto-YES is gone.** Residents exercise independent judgment based on their expertise and experience.
 
-```bash
-cd c:\Users\Jnel9\OneDrive\Desktop\pureswarm-v0.1.0\pureswarm-v0.1.0
-python run_simulation.py --interactive --emergency --num_rounds 18
+**Next Session Prompt:**
+```
+Read VOTING_FIX.md for context. Phase 1-3 are complete. Continue with Phase 4: Enhance RuleBasedStrategy with richer context-aware evaluation.
+
+Loose End: The `_record_vote_outcome()` method in agent.py exists but is never called. Wire it up in simulation.py after end_of_round() to complete the feedback loop.
 ```
 
 ---
 
-## What You Need to Know
+## Progress Summary
 
-### The Mission: Hierarchical Pruning
+| Phase | Description | Status |
+|-------|-------------|--------|
+| 1 | Remove auto-YES voting | DONE |
+| 2 | Load real identity with specialization | DONE |
+| 3 | Pass voting context to agents | DONE |
+| 4 | Enhance RuleBasedStrategy | NEXT |
+| 5 | Team communication (Triad deliberation) | FUTURE |
+| 6 | Persistent memory across sessions | FUTURE |
 
-The swarm has bloated to 908 tenets - most are redundant variations of similar ideas (e.g., dozens of "neuroharmonic symbiosis protocol" variants). The Great Consolidation uses:
+---
 
-1. **Pre-sorted Clusters**: 18 packages of ~40 similar tenets each
-2. **Squad Warfare**: 3 squads (Alpha/Beta/Gamma) compete to FUSE or DELETE tenets
-3. **Prompt Economy**: 10 LLM prompts per squad per round, winner takes unused
-4. **Scoring**: FUSE = 3pts/tenet, DELETE = 2pts/tenet
+## What Changed (Session 2 - Phase 3)
 
-### Agent Hierarchy
+### New Models (models.py)
 
-| Tier | Count | Can Propose? | Strategy |
-|------|-------|--------------|----------|
-| **Triad** | 3 | Yes (LLM) | LLMDrivenStrategy |
-| **Researchers** | 6 | Yes (LLM) | LLMDrivenStrategy |
-| **Residents** | 246 | No (vote only) | RuleBasedStrategy |
+```python
+class VoteRecord(BaseModel):
+    proposal_id: str
+    action: ProposalAction
+    vote: bool  # True = YES, False = NO
+    outcome: ProposalStatus
+    round_number: int
 
-Only 9 agents generate FUSE/DELETE proposals. The 246 Residents auto-vote YES on consolidation proposals (line 192-193 in agent.py).
-
-### The Prompt Format
-
-Agents receive pre-sorted tenets and respond with:
-
+class VotingContext(BaseModel):
+    recent_events: list[ChronicleEvent]  # Last 10 chronicle events
+    milestones: list[ChronicleEvent]     # Permanent milestones
+    personal_memory: list[str]           # Agent's observations
+    voting_history: list[VoteRecord]     # Past votes + outcomes
+    squad_id: str | None
+    squad_momentum: float
 ```
-FUSE [abc123, def456, ghi789] -> "The unified belief that captures all three"
+
+### Strategy Interface (base.py)
+
+Added `voting_context: Optional[VotingContext] = None` to `evaluate_proposal()`
+
+### RuleBasedStrategy (rule_based.py)
+
+Section 8: Historical Context scoring:
+- 8.1 Chronicle alignment: +0.15 if proposal matches recent events
+- 8.2 Personal memory: +0.1 if matches agent's observations
+- 8.3 Voting consistency: +0.1 if track record supports consolidation
+- 8.4 Squad bonus: +0.05 for same-squad proposals
+
+### LLMDrivenStrategy (llm_driven.py)
+
+Prompts now include:
 ```
-or
-```
-DELETE [abc123, def456]
+HISTORICAL CONTEXT:
+RECENT COMMUNITY EVENTS:
+- [event 1]
+- [event 2]
+
+YOUR RECENT OBSERVATIONS:
+- [observation 1]
+
+YOUR VOTING RECORD: 15 votes (12 YES), 10 successful outcomes
 ```
 
-Parsing happens in [agent.py:255-278](pureswarm/agent.py#L255-L278).
+### Agent Runtime (agent.py)
+
+- Added `chronicle` parameter to `__init__()`
+- Added `_voting_history: list[VoteRecord]`
+- Added `_build_voting_context()` async method
+- Added `_record_vote_outcome()` method (NOT YET WIRED)
+- Voting loop now passes context to strategies
+
+### Simulation (simulation.py)
+
+All 3 agent creation sites now pass `chronicle=self._chronicle`:
+- Initial agent creation (line 234)
+- `_load_evolved_agents()` (line 326)
+- `_spawn_citizens()` (line 1093)
+
+---
+
+## Loose End: Wire Vote Outcome Recording
+
+The feedback loop is incomplete. `_record_vote_outcome()` exists but isn't called.
+
+**Where to wire it:** In `simulation.py._run_round()`, after `consensus.end_of_round()`:
+
+```python
+# After end_of_round resolves proposals
+for proposal in self._consensus.all_proposals():
+    if proposal.status != ProposalStatus.PENDING:
+        for agent in self._agents:
+            if agent.id in proposal.votes:
+                agent._record_vote_outcome(
+                    proposal.id,
+                    proposal.action,
+                    proposal.votes[agent.id],
+                    proposal.status,
+                    round_num
+                )
+```
 
 ---
 
@@ -57,208 +123,93 @@ Parsing happens in [agent.py:255-278](pureswarm/agent.py#L255-L278).
 
 | File | What It Does |
 |------|--------------|
-| `pureswarm/simulation.py` | Round orchestrator, writes `.current_cluster.json`, calls squad scoring |
-| `pureswarm/agent.py` | Agent runtime, FUSE/DELETE parsing, proposal submission |
-| `pureswarm/strategies/llm_driven.py` | The consolidation prompt (lines 76-129) |
-| `pureswarm/squad_competition.py` | Scoring, leaderboard, grand prize mechanics |
-| `pureswarm/tenet_clusterer.py` | Pre-clustering by keyword similarity |
-| `pureswarm/prompt_economy.py` | 10 prompts/squad, winner-takes-all rollover |
-| `pureswarm/tools/http_client.py` | LLM fallback chain (now Anthropic-first) |
-
-### Data Files
-
-| File | Purpose |
-|------|---------|
-| `data/tenets.json` | The 908 tenets (goal: reduce to ~200) |
-| `data/.tenet_clusters.json` | 18 pre-sorted clusters |
-| `data/.current_cluster.json` | Active cluster for current round |
-| `data/.round_review.json` | Dashboard state (written after each round) |
-| `data/agent_fitness.json` | 255 agent fitness scores and traits |
+| `VOTING_FIX.md` | Roadmap (Phases 1-6) |
+| `pureswarm/models.py` | VotingContext, VoteRecord models |
+| `pureswarm/agent.py` | _build_voting_context(), _record_vote_outcome() |
+| `pureswarm/strategies/rule_based.py` | Section 8 historical context scoring |
+| `pureswarm/strategies/llm_driven.py` | LLM prompts with HISTORICAL CONTEXT |
+| `pureswarm/simulation.py` | Wires chronicle to agents |
 
 ---
 
-## What I Fixed This Session
-
-### 1. LLM Fallback Order (THE $5 BURN)
-
-**Problem:** Venice was primary, Anthropic was fallback. Venice returned 402 (out of credits) but each of 255 agents independently discovered this, burning API calls.
-
-**Fix:** Swapped order in `http_client.py` - Anthropic now primary, Venice fallback.
-
-Files changed:
-- `pureswarm/tools/http_client.py:318-371` - FallbackLLMClient rewritten
-- `pureswarm/tools/internet.py:56` - Comment + log order
-- `pureswarm/simulation.py:94` - Comment + log order
-
-### 2. Unhashable Tenet Bug
-
-**Problem:** `set(recent + rand_gen)` failed because Pydantic models aren't hashable.
-
-**Fix:** Dedupe by tenet ID instead ([llm_driven.py:134-140](pureswarm/strategies/llm_driven.py#L134-L140)).
-
----
-
-## The Flow (When You Run It)
-
-1. **Simulation starts** with `--interactive --emergency`
-2. **Each round**:
-   - Cluster N is loaded, written to `.current_cluster.json`
-   - 9 LLM agents see 40 pre-sorted similar tenets
-   - They propose FUSE or DELETE actions
-   - 246 Residents auto-vote YES on consolidation
-   - Consensus adopts proposals, tenets get merged/deleted
-   - Squad scores updated, round winner determined
-   - **Dashboard displays**, waits for ENTER (interactive mode)
-3. **After 18 rounds**: Grand prize awarded, winning squad gets massive dopamine
-
-### Dashboard Output (What You'll See)
+## Test Status
 
 ```
-============================================================
-  ROUND 1 COMPLETE - SQUAD WARFARE RESULTS
-============================================================
-
-  WINNER: Squad Alpha (+5 margin)
-  ----------------------------------------
-
-  LEADERBOARD:
-    1st: Squad Alpha - 15 pts (FUSE:3 DEL:2 wins:1)
-    2nd: Squad Beta - 10 pts (FUSE:2 DEL:1 wins:0)
-    3rd: Squad Gamma - 8 pts (FUSE:1 DEL:2 wins:0)
-
-  PROMPT ECONOMY:
-    Squad Alpha: 12 available (+2 bonus)
-    Squad Beta: 10 available
-    Squad Gamma: 10 available
-
-  Remaining clusters: 17
-  Current tenet count: 865
-
-============================================================
-
-  Press ENTER to continue to next round (or 'q' to quit)...
+tests/test_consensus.py - 5/5 PASSED
+tests/test_simulation.py::test_full_simulation - PASSED
+tests/test_memory.py - SKIPPED (stale import)
+tests/test_messaging.py - 4 ERRORS (pre-existing)
 ```
 
 ---
 
-## Potential Issues
-
-### If No Proposals Are Generated
-- Check `ANTHROPIC_API_KEY` is set in environment
-- Check HTTP logs: `data/http_logs/http_YYYYMMDD.jsonl`
-- Verify agents are parsing FUSE/DELETE format correctly (check audit log)
-
-### If Dashboard Shows All Zeros
-- LLM likely not returning FUSE/DELETE format
-- Check the prompt in `llm_driven.py:76-129`
-- May need to tune temperature or add examples
-
-### If Tenet Count Isn't Dropping
-- Consensus may be rejecting proposals
-- Check `data/logs/audit.jsonl` for vote patterns
-- Residents should auto-vote YES for consolidation (line 192-193 agent.py)
-
----
-
-## Environment
+## Verification
 
 ```bash
-# Required
-ANTHROPIC_API_KEY=sk-ant-...
+# Test imports
+python -c "from pureswarm.models import VotingContext, VoteRecord; print('OK')"
 
-# Optional (backup, currently out of credits)
-VENICE_API_KEY=...
-
-# For prophecy system (optional)
-PURES_SOVEREIGN_PASSPHRASE=...
+# Run with voting context
+python run_simulation.py --interactive --emergency --num_rounds 2
 ```
+
+**Expected:** Dashboard shows `YES/NO` percentages - NOT 100% YES anymore.
 
 ---
 
-## Quick Reference Commands
-
-```bash
-# Launch consolidation (interactive, 18 rounds = 18 clusters)
-python run_simulation.py --interactive --emergency --num_rounds 18
-
-# Check heartbeat (is simulation alive?)
-cat data/.heartbeat
-
-# Check current round state
-cat data/.round_review.json
-
-# Check tenet count
-python -c "import json; print(len(json.load(open('data/tenets.json'))))"
-
-# Watch HTTP logs for API issues
-tail -f data/http_logs/http_20260222.jsonl
-```
-
----
-
-## Architecture Diagram
+## Architecture: Voting Context Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    EMERGENCY MODE                            │
+│                    AGENT VOTING FLOW                         │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
 │  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐  │
-│  │ Squad Alpha  │    │ Squad Beta   │    │ Squad Gamma  │  │
-│  │  85 agents   │    │  85 agents   │    │  85 agents   │  │
-│  │  (3 LLM)     │    │  (3 LLM)     │    │  (3 LLM)     │  │
+│  │   Chronicle  │    │   Personal   │    │    Voting    │  │
+│  │   (events)   │    │   Memory     │    │   History    │  │
 │  └──────┬───────┘    └──────┬───────┘    └──────┬───────┘  │
 │         │                   │                   │           │
 │         └───────────────────┼───────────────────┘           │
-│                             │                               │
 │                             ▼                               │
 │                    ┌────────────────┐                       │
-│                    │ Tenet Clusterer│                       │
-│                    │ (18 clusters)  │                       │
+│                    │ VotingContext  │                       │
 │                    └────────┬───────┘                       │
-│                             │                               │
-│                             ▼                               │
-│                    ┌────────────────┐                       │
-│                    │ .current_      │                       │
-│                    │ cluster.json   │──► LLM Agents see     │
-│                    │ (40 tenets)    │    pre-sorted batch   │
-│                    └────────────────┘                       │
 │                             │                               │
 │         ┌───────────────────┼───────────────────┐           │
 │         ▼                   ▼                   ▼           │
 │  ┌────────────┐      ┌────────────┐      ┌────────────┐    │
-│  │ FUSE [...]│      │ DELETE [...│      │ SKIP       │    │
-│  │ -> "new"  │      │ ]          │      │            │    │
+│  │ RuleBased  │      │ LLMDriven  │      │ (Future)   │    │
+│  │ Section 8  │      │ HISTORICAL │      │            │    │
 │  └─────┬──────┘      └─────┬──────┘      └────────────┘    │
-│        │                   │                               │
 │        └───────────┬───────┘                               │
 │                    ▼                                        │
 │           ┌────────────────┐                               │
-│           │   Consensus    │                               │
-│           │ (246 Residents │                               │
-│           │  auto-vote YES)│                               │
-│           └────────┬───────┘                               │
-│                    │                                        │
-│                    ▼                                        │
-│           ┌────────────────┐                               │
-│           │ Squad Scoring  │                               │
-│           │ + Prompt       │                               │
-│           │ Economy        │                               │
+│           │  INFORMED VOTE │                               │
+│           │  (YES or NO)   │                               │
 │           └────────────────┘                               │
-│                                                              │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Final Notes
+## The Big Picture (from previous session)
 
-- The whitepaper (`pureswarm_whitepaper.md`) explains the philosophical foundation
-- Chronicle system tracks swarm history (`data/chronicle.json`)
-- Dopamine system rewards successful consolidation (2.5x multiplier in emergency mode)
-- Grand prize at end: winning squad gets 3.0x dopamine explosion
+- 255 agents, 908 tenets to consolidate to ~200
+- Squad Warfare: Alpha/Beta/Gamma compete
+- 9 LLM agents (Triad + Researchers) propose FUSE/DELETE
+- 246 Residents vote with **real agency** (no more auto-YES)
+- Anthropic API primary, Venice fallback
 
-The hive is ready. Just needs you to press go.
+---
+
+## Git Commits
+
+```
+642820e feat: add squad competition system with prompt economy and tenet clustering
+b980c90 feat: add democracy check to dashboard - shows voting breakdown
+94549c8 fix: remove auto-YES voting - residents now have real agency
+[NEW]   feat: add voting context system for informed agent decisions
+```
 
 ---
 

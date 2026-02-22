@@ -253,6 +253,45 @@ class QueryDeliberation(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Voting Context (agent awareness before voting)
+# ---------------------------------------------------------------------------
+
+
+class VoteRecord(BaseModel):
+    """A record of an agent's past vote and its outcome."""
+    proposal_id: str
+    action: ProposalAction
+    vote: bool  # True = YES, False = NO
+    outcome: ProposalStatus  # adopted, rejected, expired
+    round_number: int
+
+
+class VotingContext(BaseModel):
+    """Context passed to agents before voting to enable informed decisions.
+
+    This enables agents to vote based on:
+    - Community history (chronicle events)
+    - Personal experience (lifetime memory)
+    - Voting track record (past decisions and outcomes)
+    - Squad coordination (Triad recommendations)
+    """
+    # Chronicle history - recent community events
+    recent_events: list[ChronicleEvent] = Field(default_factory=list)
+    milestones: list[ChronicleEvent] = Field(default_factory=list)
+
+    # Personal memory - agent's own experiences
+    personal_memory: list[str] = Field(default_factory=list)
+
+    # Voting history - past decisions and their outcomes
+    voting_history: list[VoteRecord] = Field(default_factory=list)
+
+    # Squad context - Triad findings and recommendations
+    squad_id: str | None = None
+    triad_recommendation: str | None = None  # "approve", "reject", or None
+    squad_momentum: float = 0.0  # Current squad competition score context
+
+
+# ---------------------------------------------------------------------------
 # Simulation state
 # ---------------------------------------------------------------------------
 

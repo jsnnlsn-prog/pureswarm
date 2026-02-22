@@ -16,8 +16,9 @@ import logging
 import random
 from typing import Sequence
 
-from ..models import Proposal, Tenet, AgentRole, QueryResponse
+from ..models import Proposal, Tenet, AgentRole, QueryResponse, VotingContext, ChronicleCategory
 from .base import BaseStrategy
+from typing import Optional
 
 logger = logging.getLogger("pureswarm.strategies.rule_based")
 
@@ -326,10 +327,12 @@ class RuleBasedStrategy(BaseStrategy):
         prophecy: str | None = None,
         squad_id: str | None = None,
         specialization: str | None = None,
+        voting_context: Optional[VotingContext] = None,
     ) -> bool:
-        """Evaluate proposal based on agent's identity, expertise, and values.
+        """Evaluate proposal based on agent's identity, expertise, values, and history.
 
         NO AUTO-YES: Every agent evaluates based on their unique perspective.
+        Now with historical context for informed decision-making.
         """
         score = 0.0
 
@@ -419,12 +422,64 @@ class RuleBasedStrategy(BaseStrategy):
                 # General consolidation - slight skepticism (must earn the vote)
                 score += 0.1
 
+        # 8. HISTORICAL CONTEXT - informed by chronicle and personal experience
+        if voting_context:
+            # 8.1 Chronicle alignment - bonus if proposal aligns with recent community direction
+            if voting_context.recent_events:
+                for event in voting_context.recent_events[-5:]:
+                    event_overlap = _keyword_overlap(proposal.tenet_text, event.text)
+                    if event_overlap > 0.2:
+                        # Proposals aligned with recent community events get a boost
+                        score += event_overlap * 0.15
+                        logger.debug("Agent %s sees alignment with recent event: %s", agent_id, event.text[:50])
+                        break
+
+                # Emergency mode awareness - if community is in consolidation, support it
+                consolidation_events = [e for e in voting_context.recent_events
+                                        if e.category == ChronicleCategory.CONSENSUS]
+                if consolidation_events and is_consolidation:
+                    score += 0.1
+                    logger.debug("Agent %s supports consolidation momentum", agent_id)
+
+            # 8.2 Personal memory alignment - consistency with own observations
+            if voting_context.personal_memory:
+                for memory in voting_context.personal_memory[-3:]:
+                    memory_overlap = _keyword_overlap(proposal.tenet_text, memory)
+                    if memory_overlap > 0.2:
+                        score += memory_overlap * 0.1
+                        logger.debug("Agent %s recalls relevant experience", agent_id)
+                        break
+
+            # 8.3 Voting consistency - align with past successful votes
+            if voting_context.voting_history:
+                # Find similar past proposals
+                from ..models import ProposalStatus
+                successful_votes = [v for v in voting_context.voting_history
+                                   if v.outcome == ProposalStatus.ADOPTED and v.vote]
+                failed_votes = [v for v in voting_context.voting_history
+                               if v.outcome == ProposalStatus.REJECTED and not v.vote]
+
+                # Agent tends to repeat successful voting patterns
+                if is_consolidation:
+                    consolidation_successes = [v for v in successful_votes
+                                               if v.action in [ProposalAction.FUSE, ProposalAction.DELETE]]
+                    if len(consolidation_successes) >= 3:
+                        # Agent has successful track record with consolidation
+                        score += 0.1
+                        logger.debug("Agent %s has consolidation track record", agent_id)
+
+            # 8.4 Squad context - slight bonus if same squad proposes
+            if voting_context.squad_id and squad_id == voting_context.squad_id:
+                # Small in-group bonus (not overwhelming - democracy matters)
+                score += 0.05
+
         # Threshold - agents with strong opinions vote accordingly
         threshold = 0.25  # Higher than before - no more rubber-stamping
 
         vote = score >= threshold
-        logger.debug("Agent %s (%s) votes %s on proposal %s (score=%.2f)",
-                    agent_id, my_specialty, "YES" if vote else "NO", proposal.id[:8], score)
+        context_info = "with context" if voting_context and (voting_context.recent_events or voting_context.personal_memory) else "no context"
+        logger.debug("Agent %s (%s) votes %s on proposal %s (score=%.2f, %s)",
+                    agent_id, my_specialty, "YES" if vote else "NO", proposal.id[:8], score, context_info)
 
         return vote
 

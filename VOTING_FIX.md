@@ -4,10 +4,57 @@
 
 - [x] Phase 1: Remove auto-YES (COMPLETE - 2026-02-22)
 - [x] Phase 2: Load real identity (COMPLETE - 2026-02-22)
-- [ ] Phase 3: Pass voting context (FUTURE SESSION)
+- [x] Phase 3: Pass voting context (COMPLETE - 2026-02-22)
 - [ ] Phase 4: Enhance RuleBasedStrategy (FUTURE SESSION)
 - [ ] Phase 5: Team communication (FUTURE SESSION)
 - [ ] Phase 6: Persistent memory (FUTURE SESSION)
+
+### What Changed (Session 2 - Phase 3)
+
+**models.py:**
+- Added `VoteRecord` model to track voting decisions and outcomes
+- Added `VotingContext` model bundling:
+  - `recent_events` - Chronicle history (last 10 events)
+  - `milestones` - Permanent community milestones
+  - `personal_memory` - Agent's lifetime observations
+  - `voting_history` - Past votes with outcomes
+  - `squad_id`, `squad_momentum`, `triad_recommendation`
+
+**strategies/base.py:**
+- Added `voting_context: Optional[VotingContext]` parameter to `evaluate_proposal()`
+
+**strategies/rule_based.py:**
+- Imported VotingContext and ChronicleCategory
+- Added Section 8: HISTORICAL CONTEXT scoring:
+  - 8.1 Chronicle alignment (+0.15 if proposal matches recent events)
+  - 8.2 Personal memory alignment (+0.1 if matches observations)
+  - 8.3 Voting consistency (+0.1 if track record supports consolidation)
+  - 8.4 Squad in-group bonus (+0.05 for same-squad proposals)
+
+**strategies/llm_driven.py:**
+- Imported VotingContext
+- Added voting_context parameter to evaluate_proposal()
+- Builds HISTORICAL CONTEXT section in LLM prompt with:
+  - Recent community events (last 3)
+  - Agent's personal observations (last 2)
+  - Voting record summary (total/YES/successful)
+
+**agent.py:**
+- Imported Chronicle, VotingContext, VoteRecord
+- Added `chronicle` parameter to `__init__()`
+- Added `_voting_history: list[VoteRecord]` to track votes
+- Added `_build_voting_context()` async method
+- Added `_record_vote_outcome()` method
+- Updated `run_round()` to:
+  - Build voting context before voting loop
+  - Pass context to `evaluate_proposal()`
+  - Track votes for later outcome recording
+
+**simulation.py:**
+- Updated all 3 agent creation sites to pass `chronicle=self._chronicle`:
+  - Initial agent creation
+  - `_load_evolved_agents()`
+  - `_spawn_citizens()`
 
 ### What Changed (Session 1)
 

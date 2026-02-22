@@ -230,7 +230,8 @@ class Simulation:
                     scanner=self._scanner,
                     prophecy_engine=self._prophecy_engine if role == AgentRole.TRIAD_MEMBER else None,
                     squad_id=squad_id,
-                    is_researcher=is_researcher
+                    is_researcher=is_researcher,
+                    chronicle=self._chronicle,
                 )
                 self._agents.append(agent)
                 if is_triad:
@@ -322,7 +323,8 @@ class Simulation:
                     scanner=self._scanner,
                     prophecy_engine=self._prophecy_engine if is_triad else None,
                     squad_id=squad_id,
-                    is_researcher=is_researcher
+                    is_researcher=is_researcher,
+                    chronicle=self._chronicle,
                 )
 
                 agents.append(agent)
@@ -1089,7 +1091,8 @@ class Simulation:
                 seed_prompt=self._seed_prompt,
                 scanner=self._scanner,
                 squad_id=squad_id,
-                is_researcher=False
+                is_researcher=False,
+                chronicle=self._chronicle,
             )
             self._agents.append(agent)
             self._bus.subscribe(agent.id)

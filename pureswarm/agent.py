@@ -8,6 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+from .chronicle import Chronicle
 from .consensus import ConsensusProtocol
 from .memory import SharedMemory
 from .message_bus import MessageBus
@@ -20,6 +21,8 @@ from .models import (
     Proposal,
     ProposalAction,
     ProposalStatus,
+    VotingContext,
+    VoteRecord,
 )
 from .prophecy import ProphecyEngine
 from .security import AuditLogger, LobstertailScanner
@@ -53,6 +56,7 @@ class Agent:
         prophecy_engine: Optional[ProphecyEngine] = None,
         squad_id: str | None = None,
         is_researcher: bool = False,
+        chronicle: Optional[Chronicle] = None,
     ) -> None:
         self.identity = identity
         self.squad_id = squad_id
@@ -68,6 +72,7 @@ class Agent:
         self._max_votes = max_votes_per_round
         self._scanner = scanner
         self._prophecy_engine = prophecy_engine
+        self._chronicle = chronicle
 
         # Identity Fusion & Internet Tools (InternetAccess handles role-based tool gating)
         from .tools.internet import InternetAccess
@@ -77,6 +82,7 @@ class Agent:
         # Internal state
         self._round_observations: list[str] = []
         self._lifetime_memory: list[str] = []
+        self._voting_history: list[VoteRecord] = []  # Track past voting decisions
 
     @property
     def id(self) -> str:
@@ -166,17 +172,23 @@ class Agent:
         # 2. REASON & ACT — vote on pending proposals
         pending = self._consensus.pending_proposals()
         votes_this_round = 0
-        
+
         # EMERGENCY MODE & AUTHORITY CHECK
         emergency = os.getenv("EMERGENCY_MODE") == "TRUE"
         can_use_llm = self.is_researcher # Triad is auto-researcher in __init__
-        
+
         # Get latest prophecy text for strategy
         prophecy_text = None
         if self._prophecy_engine:
             p = self._prophecy_engine.get_latest_prophecy()
             if p:
                 prophecy_text = p.content
+
+        # Build voting context (chronicle history, personal memory, voting record)
+        voting_context = await self._build_voting_context()
+
+        # Track votes cast this round for later outcome recording
+        votes_cast_this_round: list[tuple[str, ProposalAction, bool]] = []
 
         for proposal in pending:
             if proposal.proposed_by == self.id:
@@ -188,17 +200,22 @@ class Agent:
 
             # All agents evaluate proposals through their strategy - no auto-YES
             # Residents use RuleBasedStrategy, Triad/Researchers use LLMDrivenStrategy
+            # Now with voting context for informed decision-making
             vote = await self._strategy.evaluate_proposal(
                 self.id, proposal, tenets, self._seed_prompt,
                 role=self.identity.role,
                 prophecy=prophecy_text,
                 squad_id=self.squad_id,
-                specialization=self.identity.specialization
+                specialization=self.identity.specialization,
+                voting_context=voting_context,
             )
             accepted = self._consensus.cast_vote(self.id, proposal.id, vote)
             if accepted:
                 votes_this_round += 1
                 stats["votes_cast"] += 1
+
+                # Track this vote for later outcome recording
+                votes_cast_this_round.append((proposal.id, proposal.action, vote))
 
                 # Broadcast vote message
                 await self._bus.broadcast(
@@ -219,6 +236,7 @@ class Agent:
                             "proposal_id": proposal.id,
                             "vote": vote,
                             "round": round_number,
+                            "has_context": bool(voting_context.recent_events or voting_context.personal_memory),
                         },
                     )
                 )
@@ -340,3 +358,58 @@ class Agent:
                     self._lifetime_memory.append(f"Internal Reflection: I feel a pull toward {mandate}")
             except Exception:
                 pass
+
+    async def _build_voting_context(self) -> VotingContext:
+        """Build voting context from chronicle, memory, and voting history.
+
+        This gives agents historical awareness before they vote, enabling
+        informed decisions based on community history and personal experience.
+        """
+        # Read chronicle events if available
+        recent_events = []
+        milestones = []
+        if self._chronicle:
+            try:
+                recent_events = await self._chronicle.read_recent(limit=10)
+                milestones = await self._chronicle.read_milestones()
+            except Exception as e:
+                logger.debug("Agent %s failed to read chronicle: %s", self.id, e)
+
+        # Get recent personal memory (last 10 observations)
+        personal_memory = self._lifetime_memory[-10:] if self._lifetime_memory else []
+
+        # Get recent voting history (last 20 votes)
+        voting_history = self._voting_history[-20:] if self._voting_history else []
+
+        # Build squad context
+        squad_momentum = self.momentum
+
+        return VotingContext(
+            recent_events=recent_events,
+            milestones=milestones,
+            personal_memory=personal_memory,
+            voting_history=voting_history,
+            squad_id=self.squad_id,
+            squad_momentum=squad_momentum,
+        )
+
+    def _record_vote_outcome(
+        self,
+        proposal_id: str,
+        action: ProposalAction,
+        vote: bool,
+        outcome: ProposalStatus,
+        round_number: int,
+    ) -> None:
+        """Record a vote and its outcome for historical context."""
+        record = VoteRecord(
+            proposal_id=proposal_id,
+            action=action,
+            vote=vote,
+            outcome=outcome,
+            round_number=round_number,
+        )
+        self._voting_history.append(record)
+        # Keep only recent history to prevent memory bloat
+        if len(self._voting_history) > 100:
+            self._voting_history = self._voting_history[-100:]

@@ -13,9 +13,10 @@ import json
 import os
 from typing import Optional, List, Union, Any
 
-from ..models import Proposal, Tenet, AgentRole, QueryResponse
+from ..models import Proposal, Tenet, AgentRole, QueryResponse, VotingContext
 from .base import BaseStrategy
 from ..tools.http_client import VeniceAIClient, FallbackLLMClient
+from typing import Optional as Opt
 
 logger = logging.getLogger("pureswarm.strategies.llm_driven")
 
@@ -180,10 +181,12 @@ Proposed Tenet:"""
         prophecy: str | None = None,
         squad_id: str | None = None,
         specialization: str | None = None,
+        voting_context: Opt[VotingContext] = None,
     ) -> bool:
         """Use LLM to evaluate if a proposal strengthens the collective.
 
         Triad and Researchers use this for nuanced evaluation.
+        Now with historical context for informed decision-making.
         """
         from ..models import ProposalAction
 
@@ -196,6 +199,33 @@ Proposed Tenet:"""
             agent_context += f" | Squad: {squad_id}"
         if specialization:
             agent_context += f" | Expertise: {specialization}"
+
+        # Build historical context section
+        history_section = ""
+        if voting_context:
+            history_parts = []
+
+            # Recent community events
+            if voting_context.recent_events:
+                recent_texts = [f"- {e.text}" for e in voting_context.recent_events[-3:]]
+                history_parts.append(f"RECENT COMMUNITY EVENTS:\n" + "\n".join(recent_texts))
+
+            # Personal observations
+            if voting_context.personal_memory:
+                memory_texts = voting_context.personal_memory[-2:]
+                history_parts.append(f"YOUR RECENT OBSERVATIONS:\n" + "\n".join([f"- {m}" for m in memory_texts]))
+
+            # Voting track record (summarized)
+            if voting_context.voting_history:
+                from ..models import ProposalStatus
+                total = len(voting_context.voting_history)
+                yes_votes = sum(1 for v in voting_context.voting_history if v.vote)
+                successful = sum(1 for v in voting_context.voting_history
+                               if v.outcome == ProposalStatus.ADOPTED)
+                history_parts.append(f"YOUR VOTING RECORD: {total} votes ({yes_votes} YES), {successful} successful outcomes")
+
+            if history_parts:
+                history_section = "\n\nHISTORICAL CONTEXT:\n" + "\n\n".join(history_parts)
 
         # CONSOLIDATION proposals - show TARGET tenets for verification
         if is_consolidation and proposal.target_ids:
@@ -214,12 +244,14 @@ PROPOSED OUTCOME: "{proposal.tenet_text}"
 Action: {proposal.action.value}
 
 EMERGENCY MODE: {'ACTIVE - The Great Consolidation is underway. Evaluate carefully but support good consolidation.' if emergency else 'Inactive'}
+{history_section}
 
 CRITERIA FOR CONSOLIDATION:
 1. Are the target tenets redundant, overlapping, or semantically similar?
 2. Does the proposed unified text preserve the core meaning?
 3. Will this reduce bloat without losing critical beliefs?
 4. Does this affect your area of expertise? If so, evaluate more carefully.
+5. Consider your voting history - maintain consistency with your past decisions.
 
 Respond ONLY with "YES" to approve or "NO" to reject.
 
@@ -242,11 +274,13 @@ Seed Prompt: {seed_prompt}
 
 EXISTING EXAMPLES (Subset):
 {tenet_context}
+{history_section}
 
 CRITERIA:
 1. Does it duplicate an existing tenet?
 2. Does it align with our core purpose?
 3. Is it relevant to your expertise ({specialization or 'general'})?
+4. Consider community events and your past observations.
 
 Respond ONLY with "YES" to approve or "NO" to reject. Give a one-sentence reason.
 

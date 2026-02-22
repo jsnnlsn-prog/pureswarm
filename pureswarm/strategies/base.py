@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import Optional
 
-from ..models import Proposal, Tenet, AgentRole, QueryResponse
+from ..models import Proposal, Tenet, AgentRole, QueryResponse, VotingContext
 
 
 class BaseStrategy(ABC):
@@ -34,6 +35,7 @@ class BaseStrategy(ABC):
         prophecy: str | None = None,
         squad_id: str | None = None,
         specialization: str | None = None,
+        voting_context: Optional[VotingContext] = None,
     ) -> bool:
         """Return True to vote YES, False to vote NO.
 
@@ -46,6 +48,7 @@ class BaseStrategy(ABC):
             prophecy: Current prophecy from Sovereign (if any)
             squad_id: Agent's squad (Alpha, Beta, Gamma)
             specialization: Agent's area of expertise
+            voting_context: Historical context (chronicle, memory, voting record)
         """
 
     @abstractmethod
