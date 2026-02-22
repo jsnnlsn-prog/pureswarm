@@ -171,6 +171,8 @@ class Simulation:
                 squad_id = squads[i % 3] if self._emergency_mode else None
                 # Mark first 2 Residents per squad as researchers (Total 6)
                 is_researcher = (3 <= i < 9) if self._emergency_mode else False
+                if is_researcher:
+                    role = AgentRole.RESEARCHER
 
                 identity = AgentIdentity(name=name, role=role)
                 # Strategy: LLM-driven if available, else Rule-based
@@ -233,6 +235,8 @@ class Simulation:
                 squad_id = squads[i % 3] if self._emergency_mode else None
                 # Grant researcher status to first 6 non-triad agents found
                 is_researcher = (3 <= i < 9) if self._emergency_mode else False
+                if is_researcher:
+                    role = AgentRole.RESEARCHER
 
                 # Create agent identity
                 name = f"Agent-{agent_id[:8]}"

@@ -60,6 +60,7 @@ class QueryStatus(str, Enum):
 class AgentRole(str, Enum):
     RESIDENT = "resident"
     TRIAD_MEMBER = "triad_member"
+    RESEARCHER = "researcher"
 
 
 class ChronicleCategory(str, Enum):
