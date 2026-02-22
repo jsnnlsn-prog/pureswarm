@@ -37,33 +37,45 @@ class LLMDrivenStrategy(BaseStrategy):
     ) -> str | None:
         """Use Venice AI to generate a novel tenet proposal."""
         
-        # Provide more context for consolidation if prophecy or environment suggests it
+        # Determine consolidation mode
         emergency = os.getenv("EMERGENCY_MODE") == "TRUE"
         is_consolidation = emergency or (prophecy and any(kw in prophecy.lower() for kw in ["consolidation", "prune", "merge", "redundant"]))
         
-        tenet_list = "\n".join([f"[{t.id}] {t.text}" for t in existing_tenets]) # Full list for identification
+        # Token Efficiency: Instead of showing all 600+ tenets, show a window/sample
+        # Always include the core pillars (first 4) + random sample of others
+        pillars = existing_tenets[:4]
+        other_pool = existing_tenets[4:]
+        sample_size = 40
+        sample = random.sample(other_pool, min(len(other_pool), sample_size)) if other_pool else []
+        
+        display_tenets = pillars + sample
+        tenet_list = "\n".join([f"[{t.id}] {t.text}" for t in display_tenets])
         
         if is_consolidation and (role == AgentRole.TRIAD_MEMBER or role == AgentRole.RESEARCHER):
              prompt = f"""You are a {role.value} of the PureSwarm collective.
 Your Agent ID is: {agent_id}
-Your Mission: THE GREAT CONSOLIDATION
+Your Mission: THE GREAT CONSOLIDATION (Token-Efficient Sharded Audit)
 
 PROPHETIC GUIDANCE: {prophecy}
 
-CURRENT SHARED TENETS (with IDs):
+AUDIT POOL (A subset of the {len(existing_tenets)} total tenets):
 {tenet_list}
 
-TASK: Identify redundant or overlapping tenets and propose a FUSION or DELETION to refine the collective memory.
+TASK: Identify redundant or overlapping tenets in this specific subset and propose a FUSION or DELETION.
+If no issues found in this subset, respond with "SKIP".
 
 RULES:
-1. To merge tenets, respond with: FUSE [id1, id2, ...] -> "New unified tenet text"
-2. To delete a useless/redundant tenet, respond with: DELETE [id1]
-3. If you want to add a regular tenet instead, just provide the text.
-4. Keep it impactful. Aim for high density.
+1. FUSE [id1, id2] -> "Unified text"
+2. DELETE [id1]
+3. Keep results high-density.
 
 Consolidation Proposal:"""
         else:
-            tenet_context = "\n".join([f"- {t.text}" for t in existing_tenets[-30:]])
+            # For regular generation, just show the most recent 10 + 10 random
+            recent = existing_tenets[-10:] if existing_tenets else []
+            rand_gen = random.sample(existing_tenets, min(len(existing_tenets), 10)) if existing_tenets else []
+            gen_context = "\n".join([f"- {t.text}" for t in set(recent + rand_gen)])
+            
             prompt = f"""You are an autonomous agent in a decentralized collective called PureSwarm.
 Your Agent ID is: {agent_id}
 Your Role is: {role.value}
@@ -72,15 +84,13 @@ Your Mission Goal (Seed Prompt): {seed_prompt}
 
 {'PROPHETIC GUIDANCE: ' + prophecy if prophecy else ''}
 
-CURRENT SHARED TENETS (DO NOT REPEAT THESE):
-{tenet_context}
+CONTEXT (Recent & Sampled Tenets):
+{gen_context}
 
 TASK: Propose ONE new, powerful tenet for the collective. 
 RULES:
-1. It MUST be novel and not duplicate existing tenets.
-2. It MUST align with the seed prompt and any prophetic guidance.
-3. Keep it to a single, impactful sentence.
-4. If you have nothing novel to add, simply respond with "SKIP".
+1. Alignment with Mission and Prophecy is mandatory.
+2. If you have nothing novel to add, simply respond with "SKIP".
 
 Proposed Tenet:"""
 
@@ -107,19 +117,27 @@ Proposed Tenet:"""
     ) -> bool:
         """Use Venice AI to evaluate if a proposal strengthens the collective."""
         
+        # Token Efficiency for evaluation: sample 20 tenets for context check
+        sample_context = random.sample(existing_tenets, min(len(existing_tenets), 20)) if existing_tenets else []
+        tenet_context = "\n".join([f"- {t.text}" for t in sample_context])
+        
         prompt = f"""Evaluate this proposed tenet for the PureSwarm collective.
 Agent ID: {agent_id}
 Proposing Agent: {proposal.proposed_by}
 Proposed Tenet: "{proposal.tenet_text}"
+Action: {proposal.action.value}
 
 CONTEXT:
 Seed Prompt: {seed_prompt}
 {'Prophecy: ' + prophecy if prophecy else ''}
 
+EXISTING EXAMPLES (Subset):
+{tenet_context}
+
 CRITERIA:
-1. Does it duplicate an existing tenet? (Reject if yes)
+1. Does it duplicate an existing tenet?
 2. Does it align with our core purpose?
-3. Is it constructive and clear?
+3. If FUSE/DELETE: Does it actually reduce redundancy logically?
 
 Respond ONLY with "YES" to approve or "NO" to reject. Give a one-sentence reason.
 
