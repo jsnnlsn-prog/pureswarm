@@ -57,6 +57,7 @@ async def main() -> None:
 
     parser = argparse.ArgumentParser(description="PureSwarm Simulation Runner")
     parser.add_argument("--emergency", action="store_true", help="Enable Emergency Mode")
+    parser.add_argument("--interactive", action="store_true", help="Pause after each round for review")
     parser.add_argument("--config", type=str, default="config.toml", help="Path to config file")
     parser.add_argument("--num_rounds", type=int, help="Number of rounds to run")
     parser.add_argument("--num_agents", type=int, help="Number of agents in the simulation")
@@ -101,6 +102,7 @@ async def main() -> None:
         data_dir=data_dir,
         allow_external_apis=sec_cfg.get("allow_external_apis", False),
         memory_backend=memory_backend,
+        interactive=args.interactive,
     )
 
     report = await sim.run()

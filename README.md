@@ -10,8 +10,8 @@ Autonomous agent swarm platform where intelligence emerges through democratic co
 
 | Metric | Value | Primary Environment |
 |-----------|-----------|----------------------|
-| **Agents** | **187** | `pureswarm-node` (Unified) |
-| **Tenets** | **687** | `pureswarm-node` (Unified) |
+| **Agents** | **255** | `pureswarm-node` (Unified) |
+| **Tenets** | **908** | `pureswarm-node` (Unified) |
 | **Consensus** | 94.1% Unity | Evolved Merit |
 | **Identity** | **jsn_nlsn** | GCP Compute Engine |
 
@@ -21,7 +21,7 @@ Autonomous agent swarm platform where intelligence emerges through democratic co
 
 ### 1. The Mind (`pureswarm-node`)
 
-The primary production environment hosting the 187-agent swarm. All legacy accounts have been purged and consolidated into a single identity (`jsn_nlsn`) to eliminate "split-brain" data fragmentation.
+The primary production environment hosting the 255-agent swarm. All legacy accounts have been purged and consolidated into a single identity (`jsn_nlsn`) to eliminate "split-brain" data fragmentation.
 
 ### 2. The Great Consolidation
 

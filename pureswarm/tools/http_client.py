@@ -318,7 +318,7 @@ class AnthropicClient:
 class FallbackLLMClient:
     """Multi-provider LLM client with automatic fallback.
 
-    Tries Venice AI first, falls back to Anthropic on rate limits or errors.
+    Tries Anthropic first (reliable), falls back to Venice on errors.
     """
 
     def __init__(self,
@@ -326,47 +326,47 @@ class FallbackLLMClient:
                  anthropic_client: Optional[AnthropicClient] = None) -> None:
         self._venice = venice_client
         self._anthropic = anthropic_client
-        self._venice_blocked_until: Optional[datetime] = None
-        self._active_provider = "venice" if venice_client else "anthropic"
+        self._anthropic_blocked_until: Optional[datetime] = None
+        self._active_provider = "anthropic" if anthropic_client else "venice"
 
     async def complete(self,
                        prompt: str,
                        max_tokens: int = 1000,
                        temperature: float = 0.7) -> Optional[str]:
-        """Try Venice first, fallback to Anthropic on failure."""
+        """Try Anthropic first (primary), fallback to Venice on failure."""
 
-        # Check if Venice is temporarily blocked
+        # Check if Anthropic is temporarily blocked
         now = datetime.now(timezone.utc)
-        venice_available = (
-            self._venice is not None and
-            (self._venice_blocked_until is None or now >= self._venice_blocked_until)
+        anthropic_available = (
+            self._anthropic is not None and
+            (self._anthropic_blocked_until is None or now >= self._anthropic_blocked_until)
         )
 
-        # Try Venice first
-        if venice_available:
-            try:
-                result = await self._venice.complete(prompt, max_tokens=max_tokens, temperature=temperature)
-                if result:
-                    self._active_provider = "venice"
-                    return result
-                # Venice returned None - might be rate limited
-                logger.warning("Venice returned empty, switching to Anthropic fallback")
-            except Exception as e:
-                logger.warning("Venice error: %s, switching to Anthropic", e)
-
-            # Block Venice for 60s on failure
-            self._venice_blocked_until = now + timedelta(seconds=60)
-
-        # Fallback to Anthropic
-        if self._anthropic:
+        # Try Anthropic first (primary provider)
+        if anthropic_available:
             try:
                 result = await self._anthropic.complete(prompt, max_tokens=max_tokens, temperature=temperature)
                 if result:
                     self._active_provider = "anthropic"
-                    logger.info("Using Anthropic fallback successfully")
+                    return result
+                # Anthropic returned None - might be rate limited
+                logger.warning("Anthropic returned empty, switching to Venice fallback")
+            except Exception as e:
+                logger.warning("Anthropic error: %s, switching to Venice", e)
+
+            # Block Anthropic for 60s on failure
+            self._anthropic_blocked_until = now + timedelta(seconds=60)
+
+        # Fallback to Venice
+        if self._venice:
+            try:
+                result = await self._venice.complete(prompt, max_tokens=max_tokens, temperature=temperature)
+                if result:
+                    self._active_provider = "venice"
+                    logger.info("Using Venice fallback successfully")
                     return result
             except Exception as e:
-                logger.error("Anthropic fallback also failed: %s", e)
+                logger.error("Venice fallback also failed: %s", e)
 
         return None
 

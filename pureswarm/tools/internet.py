@@ -53,7 +53,7 @@ class InternetAccess:
         self._vault = SovereignVault(self._data_dir)
         self._http = ShinobiHTTPClient(self._data_dir)
 
-        # LLM for intelligent reasoning - Venice primary, Anthropic fallback
+        # LLM for intelligent reasoning - Anthropic primary, Venice fallback
         venice_key = os.getenv("VENICE_API_KEY", "")
         anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
 
@@ -63,10 +63,10 @@ class InternetAccess:
         if venice_client or anthropic_client:
             self._venice = FallbackLLMClient(venice_client, anthropic_client)
             providers = []
-            if venice_client:
-                providers.append("Venice")
             if anthropic_client:
                 providers.append("Anthropic")
+            if venice_client:
+                providers.append("Venice")
             logger.info("LLM fallback chain: %s", " -> ".join(providers))
         else:
             self._venice = None
