@@ -1,19 +1,23 @@
-# Session Handoff: Voting Context System
+# Session Handoff: Triad Recommendation System
 
 **Date:** 2026-02-22
-**Status:** Phase 3 COMPLETE - Agents have historical awareness
+**Status:** Phase 4 COMPLETE - Triad leadership guides resident voting
 
 ---
 
 ## TL;DR
 
-Agents now vote with historical context - chronicle history, personal memory, and voting records inform their decisions. **The auto-YES is gone.** Residents exercise independent judgment based on their expertise and experience.
+Agents vote with full context: chronicle history, personal memory, voting records, AND Triad recommendations. **The feedback loop is complete.** Triad members vote first, their recommendations are published, and Residents receive +0.4 weight guidance from their squad's Triad.
 
 **Next Session Prompt:**
 ```
-Read VOTING_FIX.md for context. Phase 1-3 are complete. Continue with Phase 4: Enhance RuleBasedStrategy with richer context-aware evaluation.
+Read VOTING_FIX.md for context. Phase 1-4 are complete. Continue with Phase 5: Team communication (Triad deliberation before voting).
 
-Loose End: The `_record_vote_outcome()` method in agent.py exists but is never called. Wire it up in simulation.py after end_of_round() to complete the feedback loop.
+Key features working:
+- Vote outcomes recorded to agent history (feedback loop)
+- Triad votes first, publishes recommendations to .triad_recommendations.json
+- Residents read per-proposal recommendations for their squad
+- +0.4 weight for Triad "approve", -0.3 for "reject"
 ```
 
 ---
@@ -25,9 +29,43 @@ Loose End: The `_record_vote_outcome()` method in agent.py exists but is never c
 | 1 | Remove auto-YES voting | DONE |
 | 2 | Load real identity with specialization | DONE |
 | 3 | Pass voting context to agents | DONE |
-| 4 | Enhance RuleBasedStrategy | NEXT |
-| 5 | Team communication (Triad deliberation) | FUTURE |
+| 4 | Triad recommendation system (+0.4 weight) | DONE |
+| 5 | Team communication (Triad deliberation) | NEXT |
 | 6 | Persistent memory across sessions | FUTURE |
+
+---
+
+## What Changed (Session 3 - Phase 4)
+
+### Feedback Loop Complete (simulation.py)
+
+After `end_of_round()`, vote outcomes are now recorded:
+
+```python
+for proposal in self._consensus.all_proposals():
+    if proposal.status != ProposalStatus.PENDING:
+        for agent in self._agents:
+            if agent.id in proposal.votes:
+                agent._record_vote_outcome(...)
+```
+
+### Triad Deliberation First (simulation.py)
+
+Agents now run in two phases:
+1. Triad/Researchers vote first (parallel among themselves)
+2. `_publish_triad_recommendations()` writes votes to `.triad_recommendations.json`
+3. Residents vote second (read Triad guidance)
+
+### Per-Proposal Recommendations (models.py, agent.py)
+
+- Changed `triad_recommendation: str` to `triad_recommendations: dict[str, str]`
+- Maps `proposal_id -> "approve"/"reject"` for accurate per-proposal guidance
+
+### Triad Influence (rule_based.py)
+
+Section 8.5 added:
+- +0.4 weight when Triad recommends "approve"
+- -0.3 weight when Triad recommends "reject"
 
 ---
 

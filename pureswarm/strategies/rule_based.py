@@ -473,6 +473,17 @@ class RuleBasedStrategy(BaseStrategy):
                 # Small in-group bonus (not overwhelming - democracy matters)
                 score += 0.05
 
+            # 8.5 TRIAD RECOMMENDATION - strong influence from expert leadership
+            # Phase 4: Residents trust their Triad's guidance (+0.4 weight)
+            if voting_context.triad_recommendations:
+                triad_rec = voting_context.triad_recommendations.get(proposal.id)
+                if triad_rec == "approve":
+                    score += 0.4
+                    logger.debug("Agent %s follows Triad recommendation: APPROVE (+0.4)", agent_id)
+                elif triad_rec == "reject":
+                    score -= 0.3  # Triad rejection is significant but not absolute
+                    logger.debug("Agent %s follows Triad recommendation: REJECT (-0.3)", agent_id)
+
         # Threshold - agents with strong opinions vote accordingly
         threshold = 0.25  # Higher than before - no more rubber-stamping
 

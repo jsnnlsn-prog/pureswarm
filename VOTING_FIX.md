@@ -5,9 +5,32 @@
 - [x] Phase 1: Remove auto-YES (COMPLETE - 2026-02-22)
 - [x] Phase 2: Load real identity (COMPLETE - 2026-02-22)
 - [x] Phase 3: Pass voting context (COMPLETE - 2026-02-22)
-- [ ] Phase 4: Enhance RuleBasedStrategy (FUTURE SESSION)
+- [x] Phase 4: Triad recommendation system (COMPLETE - 2026-02-22)
 - [ ] Phase 5: Team communication (FUTURE SESSION)
 - [ ] Phase 6: Persistent memory (FUTURE SESSION)
+
+### What Changed (Session 3 - Phase 4)
+
+**simulation.py:**
+- Wired `_record_vote_outcome()` after `end_of_round()` - agents now learn from outcomes
+- Split agent execution: Triad/Researchers vote first, then Residents
+- Added `_publish_triad_recommendations()` to write Triad votes to `.triad_recommendations.json`
+- Enables the feedback loop for voting context system
+
+**models.py:**
+- Changed `triad_recommendation: str | None` to `triad_recommendations: dict[str, str]`
+- Now maps proposal_id -> "approve"/"reject" for per-proposal guidance
+
+**agent.py:**
+- Updated `_build_voting_context()` to read Triad recommendations from file
+- Builds per-proposal recommendation dict for the agent's squad
+- Residents receive Triad guidance; Triad members don't read their own recommendations
+
+**strategies/rule_based.py:**
+- Added Section 8.5: TRIAD RECOMMENDATION scoring
+- +0.4 weight when Triad recommends "approve"
+- -0.3 weight when Triad recommends "reject"
+- Uses per-proposal lookup: `voting_context.triad_recommendations.get(proposal.id)`
 
 ### What Changed (Session 2 - Phase 3)
 

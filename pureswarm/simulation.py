@@ -624,16 +624,33 @@ class Simulation:
         else:
             await self._run_workshop(round_num)
 
-        # Shuffle agent order for fairness
-        order = list(self._agents)
-        rng = random.Random(round_num)
-        rng.shuffle(order)
+        # Phase 4: Triad Deliberation First
+        # Triad and Researchers vote first to establish recommendations for Residents
+        # This enables the +0.4 Triad recommendation weight in RuleBasedStrategy
+        triad_agents = [a for a in self._agents if a.is_researcher or a.identity.role == AgentRole.TRIAD_MEMBER]
+        resident_agents = [a for a in self._agents if a not in triad_agents]
 
-        # Each agent takes their turn in parallel
-        # (Triad-only LLM usage prevents API rate limiting)
-        self._heartbeat(round_num, f"Agents thinking ({len(order)} parallel cognitive tasks)")
-        tasks = [agent.run_round(round_num) for agent in order]
-        results = await asyncio.gather(*tasks)
+        results = []
+
+        # Step 1: Triad/Researchers deliberate first (parallel among themselves)
+        if triad_agents:
+            self._heartbeat(round_num, f"Triad deliberating ({len(triad_agents)} experts)")
+            triad_tasks = [agent.run_round(round_num) for agent in triad_agents]
+            triad_results = await asyncio.gather(*triad_tasks)
+            results.extend(triad_results)
+
+            # Publish Triad recommendations for Residents to read
+            await self._publish_triad_recommendations(round_num)
+
+        # Step 2: Residents vote with Triad guidance (parallel among themselves)
+        if resident_agents:
+            rng = random.Random(round_num)
+            rng.shuffle(resident_agents)  # Fairness among residents
+
+            self._heartbeat(round_num, f"Residents voting ({len(resident_agents)} citizens)")
+            resident_tasks = [agent.run_round(round_num) for agent in resident_agents]
+            resident_results = await asyncio.gather(*resident_tasks)
+            results.extend(resident_results)
 
         for stats in results:
             total_proposals += stats["proposals_made"]
@@ -642,6 +659,20 @@ class Simulation:
         # End-of-round: tally and adopt/reject
         adopted = await self._consensus.end_of_round(round_num)
         tenets = await self._memory.read_tenets()
+
+        # Record vote outcomes for all resolved proposals (feedback loop)
+        # This completes the voting context system - agents learn from outcomes
+        for proposal in self._consensus.all_proposals():
+            if proposal.status != ProposalStatus.PENDING:
+                for agent in self._agents:
+                    if agent.id in proposal.votes:
+                        agent._record_vote_outcome(
+                            proposal.id,
+                            proposal.action,
+                            proposal.votes[agent.id],
+                            proposal.status,
+                            round_num
+                        )
 
         # Phase 8: Reward System (Gratification for community support)
         # Now powered by the Evolution Layer - shared dopamine, reproduction, natural selection
@@ -828,6 +859,39 @@ class Simulation:
         )
         for text in summary.adopted_tenet_texts:
             logger.info("  + TENET: %s", text)
+
+    async def _publish_triad_recommendations(self, round_num: int) -> None:
+        """Publish Triad voting recommendations for Residents to read.
+
+        After Triad members vote, their votes become recommendations for their squad.
+        This enables the +0.4 Triad recommendation weight in RuleBasedStrategy.
+        """
+        import json
+
+        recommendations: dict[str, dict[str, str]] = {}  # proposal_id -> squad_id -> "approve"/"reject"
+
+        # Collect Triad votes as recommendations
+        for proposal in self._consensus.pending_proposals():
+            for agent in self._agents:
+                if agent.identity.role == AgentRole.TRIAD_MEMBER and agent.id in proposal.votes:
+                    squad_id = agent.squad_id or "unaffiliated"
+                    vote = proposal.votes[agent.id]
+                    recommendation = "approve" if vote else "reject"
+
+                    if proposal.id not in recommendations:
+                        recommendations[proposal.id] = {}
+                    recommendations[proposal.id][squad_id] = recommendation
+
+        # Write to file for agents to read
+        recs_file = self._data_dir / ".triad_recommendations.json"
+        recs_data = {
+            "round": round_num,
+            "recommendations": recommendations,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        recs_file.write_text(json.dumps(recs_data, indent=2))
+
+        logger.debug("Triad recommendations published: %d proposals with guidance", len(recommendations))
 
     async def _interactive_round_review(self, round_num: int) -> None:
         """Pause for interactive review after each round in Squad Warfare."""

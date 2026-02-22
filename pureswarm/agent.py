@@ -360,10 +360,11 @@ class Agent:
                 pass
 
     async def _build_voting_context(self) -> VotingContext:
-        """Build voting context from chronicle, memory, and voting history.
+        """Build voting context from chronicle, memory, voting history, and Triad guidance.
 
         This gives agents historical awareness before they vote, enabling
-        informed decisions based on community history and personal experience.
+        informed decisions based on community history, personal experience,
+        and Triad recommendations (+0.4 weight for same-squad Triad guidance).
         """
         # Read chronicle events if available
         recent_events = []
@@ -384,6 +385,25 @@ class Agent:
         # Build squad context
         squad_momentum = self.momentum
 
+        # Read Triad recommendations (Phase 4: +0.4 weight for Triad guidance)
+        triad_recommendations: dict[str, str] = {}
+        if self.squad_id and self.identity.role != AgentRole.TRIAD_MEMBER:
+            # Residents read Triad recommendations for their squad
+            import json
+            recs_file = Path("data/.triad_recommendations.json")
+            if recs_file.exists():
+                try:
+                    recs_data = json.loads(recs_file.read_text())
+                    recommendations = recs_data.get("recommendations", {})
+                    # Build per-proposal recommendations for our squad
+                    for proposal_id, squad_recs in recommendations.items():
+                        if self.squad_id in squad_recs:
+                            triad_recommendations[proposal_id] = squad_recs[self.squad_id]
+                    if triad_recommendations:
+                        logger.debug("Agent %s received %d Triad recommendations", self.id, len(triad_recommendations))
+                except Exception as e:
+                    logger.debug("Agent %s failed to read Triad recommendations: %s", self.id, e)
+
         return VotingContext(
             recent_events=recent_events,
             milestones=milestones,
@@ -391,6 +411,7 @@ class Agent:
             voting_history=voting_history,
             squad_id=self.squad_id,
             squad_momentum=squad_momentum,
+            triad_recommendations=triad_recommendations,
         )
 
     def _record_vote_outcome(
