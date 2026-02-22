@@ -22,11 +22,12 @@ from .models import AgentIdentity, RoundSummary, SimulationReport, Tenet, Propos
 from .security import AuditLogger, LobstertailScanner, SandboxChecker
 from .strategies.rule_based import RuleBasedStrategy
 from .strategies.llm_driven import LLMDrivenStrategy
-from .tools.http_client import VeniceAIClient, ShinobiHTTPClient
+from .tools.http_client import VeniceAIClient, ShinobiHTTPClient, AnthropicClient, FallbackLLMClient
 from .prophecy import ProphecyEngine
 from .execution import ExecutionManager
 from .evolution import EvolutionLayer
 from .workshop import WorkshopOrchestrator
+from .squad_competition import SquadCompetition
 
 logger = logging.getLogger("pureswarm.simulation")
 
@@ -66,23 +67,30 @@ class Simulation:
 
         # Emergency Mode Deployment
         self._emergency_mode = os.getenv("EMERGENCY_MODE") == "TRUE"
+        self._squad_competition: Optional[SquadCompetition] = None
         if self._emergency_mode:
             logger.warning("!!! EMERGENCY MODE ACTIVE: NEURAL PRUNING INITIALIZED !!!")
-            os.environ["CONSOLIDATION_MODE"] = "TRUE" # Sync with scanner
+            os.environ["CONSOLIDATION_MODE"] = "TRUE"  # Sync with scanner
+            self._squad_competition = SquadCompetition()
+            logger.info("SQUAD COMPETITION ENABLED: Alpha vs Beta vs Gamma")
 
-        # Initialize LLM Strategy if key is available
+        # Initialize LLM Strategy with fallback support (Venice -> Anthropic)
         self._venice_key = os.getenv("VENICE_API_KEY", "")
+        self._anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
         self._llm_strategy = None
-        if self._venice_key:
-            # We'll use a dedicated client for the simulation level if needed,
-            # but usually agents use their own InternetAccess.
-            # However, for strategy consistency, we'll provide a shared one for non-triad reasoning.
+
+        if self._venice_key or self._anthropic_key:
             from .tools.internet import InternetAccess
-            # Temporary internal internet access just for strategy initialization
+            # Create InternetAccess which now supports fallback LLM chain
             stub_internet = InternetAccess("simulation_system", False, data_dir=self._data_dir)
             if stub_internet._venice:
                 self._llm_strategy = LLMDrivenStrategy(stub_internet._venice)
-                logger.info("Cognitive Upgrade: LLMDrivenStrategy initialized for all agents.")
+                providers = []
+                if self._venice_key:
+                    providers.append("Venice")
+                if self._anthropic_key:
+                    providers.append("Anthropic")
+                logger.info("Cognitive Upgrade: LLM fallback chain [%s] initialized.", " -> ".join(providers))
 
         # Infrastructure
         self._audit = AuditLogger(self._data_dir / "logs")
@@ -175,9 +183,12 @@ class Simulation:
                     role = AgentRole.RESEARCHER
 
                 identity = AgentIdentity(name=name, role=role)
-                # Strategy: LLM-driven if available, else Rule-based
-                strategy = self._llm_strategy if self._llm_strategy else RuleBasedStrategy()
-                
+                # Rule: Triad/Researchers use LLM strategy; Residents use Rule-Based (no API calls)
+                if is_triad or is_researcher:
+                    strategy = self._llm_strategy if self._llm_strategy else RuleBasedStrategy()
+                else:
+                    strategy = RuleBasedStrategy()
+
                 agent = Agent(
                     identity=identity,
                     strategy=strategy,
@@ -509,7 +520,7 @@ class Simulation:
             # The whole hive feels the success
             is_consolidation = (tenet.source_action in [ProposalAction.FUSE, ProposalAction.DELETE])
             intensity = 2.5 if (self._emergency_mode and is_consolidation) else 1.2
-            
+
             action_val = tenet.source_action.value if tenet.source_action else "added"
             await self._evolution.dopamine.broadcast_joy(
                 source_agent=tenet.proposed_by,
@@ -520,6 +531,18 @@ class Simulation:
 
             # Track fitness for the proposer
             self._evolution.fitness.record_verified_success(tenet.proposed_by)
+
+            # SQUAD COMPETITION: Track consolidation adoptions
+            if self._squad_competition and is_consolidation:
+                proposer_agent = next((a for a in self._agents if a.id == tenet.proposed_by), None)
+                if proposer_agent and hasattr(proposer_agent, 'squad_id') and proposer_agent.squad_id:
+                    tenets_affected = len(tenet.source_target_ids) if hasattr(tenet, 'source_target_ids') and tenet.source_target_ids else 1
+                    self._squad_competition.record_adoption(
+                        squad_id=proposer_agent.squad_id,
+                        proposal_id=tenet.source_proposal_id,
+                        action=tenet.source_action,
+                        tenets_affected=tenets_affected
+                    )
 
             # Check if this was a prophetic tenet from Shinobi no San
             if tenet.proposed_by in self._triad_ids and any(k in tenet.text for k in ["Prophecy", "Shinobi", "San", "Sovereign enlightens"]):
@@ -542,6 +565,59 @@ class Simulation:
                     }
                 )
                 await self._bus.broadcast(reward_msg)
+
+        # SQUAD COMPETITION: End-of-round judging and rewards
+        if self._squad_competition:
+            result = self._squad_competition.end_round(round_num)
+            if result.winner:
+                winner_ids, runnerup_ids = self._squad_competition.get_squad_members_for_rewards(
+                    result.winner, self._agents
+                )
+
+                # Dopamine bonus for winning squad
+                await self._evolution.dopamine.broadcast_joy(
+                    source_agent="competition",
+                    mission_id=f"round_{round_num}_victory",
+                    intensity=self._squad_competition.WINNER_DOPAMINE_MULTIPLIER,
+                    message=f"VICTORY! Squad {result.winner} dominates Round {round_num}!"
+                )
+
+                # Fitness bonus for winners
+                for agent_id in winner_ids:
+                    self._evolution.fitness.apply_multiplier(
+                        agent_id,
+                        1.0 + self._squad_competition.WINNER_FITNESS_BONUS
+                    )
+
+                # Smaller bonus for runner-up
+                for agent_id in runnerup_ids:
+                    self._evolution.fitness.apply_multiplier(
+                        agent_id,
+                        1.0 + self._squad_competition.RUNNERUP_FITNESS_BONUS
+                    )
+
+                # Broadcast victory message
+                victory_msg = Message(
+                    sender="competition",
+                    type=MessageType.REWARD,
+                    payload={
+                        "event": "squad_victory",
+                        "winner": result.winner,
+                        "margin": result.margin,
+                        "scores": result.scores,
+                        "round": round_num
+                    }
+                )
+                await self._bus.broadcast(victory_msg)
+
+                logger.info("SQUAD COMPETITION R%d: %s wins by %d! Scores: %s",
+                           round_num, result.winner, result.margin, result.scores)
+
+            # Write competition state for dashboard
+            competition_file = self._data_dir / ".squad_competition.json"
+            competition_data = self._squad_competition.get_stats_for_dashboard()
+            import json
+            competition_file.write_text(json.dumps(competition_data, indent=2))
 
         # Chronicle: Record tenet milestone achievements
         total_tenet_count = len(tenets)
@@ -747,7 +823,8 @@ class Simulation:
         for _ in range(count):
             agent_id = str(uuid.uuid4())[:8]
             identity = AgentIdentity(id=agent_id, name=f"Resident-{agent_id}")
-            strategy = self._llm_strategy if self._llm_strategy else RuleBasedStrategy()
+            # Spawned agents are always Residents - use Rule-Based (no API calls)
+            strategy = RuleBasedStrategy()
 
             # Inherit traits from parent if specified
             if parent_agent:

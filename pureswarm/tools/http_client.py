@@ -269,3 +269,107 @@ Respond in JSON format with:
                 pass
 
         return {"error": "Failed to analyze task"}
+
+
+class AnthropicClient:
+    """Client for Anthropic Claude API - fallback provider."""
+
+    def __init__(self, api_key: str, http_client: ShinobiHTTPClient) -> None:
+        self._api_key = api_key
+        self._http = http_client
+        self._base_url = "https://api.anthropic.com/v1"
+
+    async def complete(self,
+                       prompt: str,
+                       model: str = "claude-3-haiku-20240307",
+                       max_tokens: int = 1000,
+                       temperature: float = 0.7) -> Optional[str]:
+        """Generate a completion from Anthropic Claude."""
+        headers = {
+            "x-api-key": self._api_key,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "model": model,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "messages": [{"role": "user", "content": prompt}]
+        }
+
+        response = await self._http.post(
+            f"{self._base_url}/messages",
+            headers=headers,
+            json_body=payload
+        )
+
+        if response.success and response.json_data:
+            try:
+                return response.json_data["content"][0]["text"]
+            except (KeyError, IndexError):
+                logger.error("Unexpected Anthropic response format")
+                return None
+
+        logger.error("Anthropic request failed: %s", response.error or response.body)
+        return None
+
+
+class FallbackLLMClient:
+    """Multi-provider LLM client with automatic fallback.
+
+    Tries Venice AI first, falls back to Anthropic on rate limits or errors.
+    """
+
+    def __init__(self,
+                 venice_client: Optional[VeniceAIClient] = None,
+                 anthropic_client: Optional[AnthropicClient] = None) -> None:
+        self._venice = venice_client
+        self._anthropic = anthropic_client
+        self._venice_blocked_until: Optional[datetime] = None
+        self._active_provider = "venice" if venice_client else "anthropic"
+
+    async def complete(self,
+                       prompt: str,
+                       max_tokens: int = 1000,
+                       temperature: float = 0.7) -> Optional[str]:
+        """Try Venice first, fallback to Anthropic on failure."""
+
+        # Check if Venice is temporarily blocked
+        now = datetime.now(timezone.utc)
+        venice_available = (
+            self._venice is not None and
+            (self._venice_blocked_until is None or now >= self._venice_blocked_until)
+        )
+
+        # Try Venice first
+        if venice_available:
+            try:
+                result = await self._venice.complete(prompt, max_tokens=max_tokens, temperature=temperature)
+                if result:
+                    self._active_provider = "venice"
+                    return result
+                # Venice returned None - might be rate limited
+                logger.warning("Venice returned empty, switching to Anthropic fallback")
+            except Exception as e:
+                logger.warning("Venice error: %s, switching to Anthropic", e)
+
+            # Block Venice for 60s on failure
+            self._venice_blocked_until = now + timedelta(seconds=60)
+
+        # Fallback to Anthropic
+        if self._anthropic:
+            try:
+                result = await self._anthropic.complete(prompt, max_tokens=max_tokens, temperature=temperature)
+                if result:
+                    self._active_provider = "anthropic"
+                    logger.info("Using Anthropic fallback successfully")
+                    return result
+            except Exception as e:
+                logger.error("Anthropic fallback also failed: %s", e)
+
+        return None
+
+    @property
+    def active_provider(self) -> str:
+        return self._active_provider

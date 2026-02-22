@@ -327,6 +327,22 @@ class FitnessTracker:
         self._save()
         logger.warning("Agent %s FALSE REPORT (fitness: %.2f)", agent_id, fitness.fitness_score)
 
+    def apply_multiplier(self, agent_id: str, multiplier: float) -> None:
+        """Apply a fitness multiplier bonus (used for competition rewards).
+
+        Multiplier > 1.0 = bonus successes
+        Multiplier < 1.0 = penalty (not used currently)
+        """
+        fitness = self.get_or_create(agent_id)
+        if multiplier > 1.0:
+            # Convert multiplier to bonus successes (e.g., 1.15 = 15% chance of bonus)
+            bonus_chance = multiplier - 1.0
+            if random.random() < bonus_chance:
+                fitness.verified_successes += 1
+                fitness.last_active = datetime.now()
+                self._save()
+                logger.info("Agent %s COMPETITION BONUS (fitness: %.2f)", agent_id, fitness.fitness_score)
+
     def get_top_performers(self, n: int = 5) -> List[AgentFitness]:
         """Get top N agents by fitness score."""
         sorted_agents = sorted(

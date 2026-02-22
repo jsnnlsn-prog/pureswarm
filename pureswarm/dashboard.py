@@ -29,6 +29,15 @@ class HiveHUD:
         self.history = []
         self.last_tenet_count = 0
         self.start_time = time.time()
+        self.squad_competition = None
+
+        # Try to load squad competition if in emergency mode
+        if os.getenv("EMERGENCY_MODE") == "TRUE":
+            try:
+                from .squad_competition import SquadCompetition
+                self.squad_competition = SquadCompetition()
+            except ImportError:
+                pass
 
     def get_header(self) -> Panel:
         grid = Table.grid(expand=True)
@@ -157,6 +166,44 @@ class HiveHUD:
                 
         return Panel(ticker, title="[bold green]ACTIVE UPLINK[/bold green]", border_style="green")
 
+    def get_squad_leaderboard(self) -> Panel:
+        """Render the squad competition leaderboard."""
+        competition_file = self.data_dir / ".squad_competition.json"
+
+        table = Table(box=box.SIMPLE, expand=True)
+        table.add_column("RANK", style="bold white", width=4)
+        table.add_column("SQUAD", style="bold cyan")
+        table.add_column("SCORE", justify="right", style="bold green")
+        table.add_column("FUSE", justify="right", style="yellow")
+        table.add_column("DEL", justify="right", style="red")
+        table.add_column("WINS", justify="right", style="magenta")
+
+        if competition_file.exists():
+            try:
+                data = json.loads(competition_file.read_text())
+                leaderboard = data.get("leaderboard", [])
+                for i, squad in enumerate(leaderboard[:3]):
+                    rank = ["1st", "2nd", "3rd"][i]
+                    medal = ["[bold yellow]★[/bold yellow]", "[white]☆[/white]", "[dim]·[/dim]"][i]
+                    table.add_row(
+                        f"{medal} {rank}",
+                        f"[bold]{squad['squad']}[/bold]",
+                        str(squad.get("total_score", 0)),
+                        str(squad.get("fuse_adopted", 0)),
+                        str(squad.get("delete_adopted", 0)),
+                        str(squad.get("round_wins", 0))
+                    )
+            except:
+                table.add_row("", "Awaiting first round...", "", "", "", "")
+        else:
+            table.add_row("", "[dim]Competition not started[/dim]", "", "", "", "")
+
+        return Panel(
+            table,
+            title="[bold magenta]⚔ SQUAD ARENA ⚔[/bold magenta]",
+            border_style="magenta"
+        )
+
 def run_dashboard():
     # Detect data dir relative to script
     data_dir = Path("data")
@@ -179,12 +226,17 @@ def run_dashboard():
         Layout(name="map", ratio=1),
         Layout(name="ticker", ratio=1),
     )
-    
+    layout["side"].split_column(
+        Layout(name="vitals", ratio=2),
+        Layout(name="arena", ratio=1),
+    )
+
     with Live(layout, refresh_per_second=4, screen=True):
         while True:
             layout["header"].update(hud.get_header())
             layout["map"].update(hud.get_hive_map())
-            layout["side"].update(hud.get_vitals())
+            layout["vitals"].update(hud.get_vitals())
+            layout["arena"].update(hud.get_squad_leaderboard())
             layout["ticker"].update(hud.get_ticker())
             
             # Mission Progress

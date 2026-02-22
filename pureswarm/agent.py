@@ -247,30 +247,35 @@ class Agent:
                     logger.warning("Agent %s suppressed malicious proposal locally", self.id)
                     self._lifetime_memory.append(f"Round {round_number}: Proposal blocked by security intent.")
                 else:
+                    import re
                     action = ProposalAction.ADD
                     target_ids = []
                     tenet_text = text
 
-                    # Parse FUSE [id1, id2] -> "New Text"
-                    if text.startswith("FUSE ["):
+                    # Parse FUSE [id1, id2, ...] -> "New Text" (anywhere in response)
+                    fuse_match = re.search(r'FUSE\s*\[([^\]]+)\]\s*->\s*["\']?(.+?)["\']?\s*$', text, re.MULTILINE | re.DOTALL)
+                    if fuse_match:
                         try:
-                            parts = text.split("] ->", 1)
-                            id_part = parts[0].replace("FUSE [", "").strip()
+                            id_part = fuse_match.group(1)
                             target_ids = [i.strip() for i in id_part.split(",")]
-                            tenet_text = parts[1].strip().strip('"')
+                            tenet_text = fuse_match.group(2).strip().strip('"\'')
                             action = ProposalAction.FUSE
+                            logger.info("Parsed FUSE proposal: %d targets -> %s", len(target_ids), tenet_text[:50])
                         except Exception as e:
                             logger.error("Failed to parse FUSE proposal: %s", e)
-                    
-                    # Parse DELETE [id1]
-                    elif text.startswith("DELETE ["):
-                        try:
-                            id_part = text.replace("DELETE [", "").replace("]", "").strip()
-                            target_ids = [i.strip() for i in id_part.split(",")]
-                            tenet_text = f"Deletion of redundant tenets: {', '.join(target_ids)}"
-                            action = ProposalAction.DELETE
-                        except Exception as e:
-                            logger.error("Failed to parse DELETE proposal: %s", e)
+
+                    # Parse DELETE [id1, id2, ...] (anywhere in response)
+                    elif "DELETE [" in text.upper() or "DELETE[" in text.upper():
+                        delete_match = re.search(r'DELETE\s*\[([^\]]+)\]', text, re.IGNORECASE)
+                        if delete_match:
+                            try:
+                                id_part = delete_match.group(1)
+                                target_ids = [i.strip() for i in id_part.split(",")]
+                                tenet_text = f"Deletion of redundant tenets: {', '.join(target_ids[:5])}{'...' if len(target_ids) > 5 else ''}"
+                                action = ProposalAction.DELETE
+                                logger.info("Parsed DELETE proposal: %d targets", len(target_ids))
+                            except Exception as e:
+                                logger.error("Failed to parse DELETE proposal: %s", e)
 
                     proposal = Proposal(
                         tenet_text=tenet_text,

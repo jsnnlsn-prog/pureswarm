@@ -20,7 +20,7 @@ from dataclasses import dataclass
 
 from .vault import SovereignVault, Credential
 from .browser import BrowserAutomation, EmailCreator, PlatformRegistrar, set_phone_service
-from .http_client import ShinobiHTTPClient, VeniceAIClient
+from .http_client import ShinobiHTTPClient, VeniceAIClient, AnthropicClient, FallbackLLMClient
 from .email_client import ShinobiEmailClient, EmailConfig, EMAIL_PROVIDERS, EmailTemplates
 from .captcha_solver import VisionCaptchaSolver, AudioCaptchaSolver, BrowserCaptchaIntegration, create_captcha_solver
 from .phone_verify import PhoneVerificationService, create_phone_service
@@ -53,10 +53,21 @@ class InternetAccess:
         self._vault = SovereignVault(self._data_dir)
         self._http = ShinobiHTTPClient(self._data_dir)
 
-        # Venice AI for intelligent reasoning - NOW AVAILABLE TO ALL
+        # LLM for intelligent reasoning - Venice primary, Anthropic fallback
         venice_key = os.getenv("VENICE_API_KEY", "")
-        if venice_key:
-            self._venice = VeniceAIClient(venice_key, self._http)
+        anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
+
+        venice_client = VeniceAIClient(venice_key, self._http) if venice_key else None
+        anthropic_client = AnthropicClient(anthropic_key, self._http) if anthropic_key else None
+
+        if venice_client or anthropic_client:
+            self._venice = FallbackLLMClient(venice_client, anthropic_client)
+            providers = []
+            if venice_client:
+                providers.append("Venice")
+            if anthropic_client:
+                providers.append("Anthropic")
+            logger.info("LLM fallback chain: %s", " -> ".join(providers))
         else:
             self._venice = None
 

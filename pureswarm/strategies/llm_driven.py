@@ -1,8 +1,8 @@
-"""LLM-driven reasoning strategy using Venice AI.
+"""LLM-driven reasoning strategy with fallback support.
 
 This strategy provides agents with creative, historically-aware reasoning
-by leveraging Venice AI models. It explicitly prevents duplication by
-analyzing the full context of existing tenets.
+by leveraging LLM APIs (Venice AI primary, Anthropic fallback). It explicitly
+prevents duplication by analyzing the full context of existing tenets.
 """
 
 from __future__ import annotations
@@ -11,19 +11,19 @@ import logging
 import random
 import json
 import os
-from typing import Optional, List
+from typing import Optional, List, Union, Any
 
 from ..models import Proposal, Tenet, AgentRole, QueryResponse
 from .base import BaseStrategy
-from ..tools.http_client import VeniceAIClient, ShinobiHTTPClient
+from ..tools.http_client import VeniceAIClient, FallbackLLMClient
 
 logger = logging.getLogger("pureswarm.strategies.llm_driven")
 
 class LLMDrivenStrategy(BaseStrategy):
-    """Generate and evaluate proposals using Venice AI."""
+    """Generate and evaluate proposals using LLM (Venice/Anthropic fallback)."""
 
-    def __init__(self, venice_client: VeniceAIClient):
-        self._venice = venice_client
+    def __init__(self, llm_client: Union[VeniceAIClient, FallbackLLMClient, Any]):
+        self._venice = llm_client  # Named _venice for backwards compatibility
 
     async def generate_proposal(
         self,
@@ -116,12 +116,43 @@ Proposed Tenet:"""
         prophecy: str | None = None,
     ) -> bool:
         """Use Venice AI to evaluate if a proposal strengthens the collective."""
-        
-        # Token Efficiency for evaluation: sample 20 tenets for context check
-        sample_context = random.sample(existing_tenets, min(len(existing_tenets), 20)) if existing_tenets else []
-        tenet_context = "\n".join([f"- {t.text}" for t in sample_context])
-        
-        prompt = f"""Evaluate this proposed tenet for the PureSwarm collective.
+
+        from ..models import ProposalAction
+
+        emergency = os.getenv("EMERGENCY_MODE") == "TRUE"
+        is_consolidation = proposal.action in (ProposalAction.FUSE, ProposalAction.DELETE)
+
+        # CRITICAL FIX: For FUSE/DELETE proposals, show the TARGET tenets so LLM can verify
+        if is_consolidation and proposal.target_ids:
+            # Build a lookup for quick access
+            tenet_map = {t.id: t for t in existing_tenets}
+            target_tenets = [tenet_map.get(tid) for tid in proposal.target_ids if tid in tenet_map]
+            target_context = "\n".join([f"[{t.id}] {t.text}" for t in target_tenets if t])
+
+            prompt = f"""CONSOLIDATION VOTE: Evaluate this proposal to {'FUSE' if proposal.action == ProposalAction.FUSE else 'DELETE'} tenets.
+
+TENETS TO BE CONSOLIDATED:
+{target_context}
+
+PROPOSED OUTCOME: "{proposal.tenet_text}"
+Action: {proposal.action.value}
+
+EMERGENCY MODE: {'ACTIVE - The Great Consolidation is underway. VOTE YES unless clearly harmful.' if emergency else 'Inactive'}
+
+CRITERIA FOR CONSOLIDATION:
+1. Are the target tenets redundant, overlapping, or semantically similar?
+2. Does the proposed unified text preserve the core meaning?
+3. Will this reduce bloat without losing critical beliefs?
+
+Respond ONLY with "YES" to approve or "NO" to reject.
+
+Decision (YES/NO):"""
+        else:
+            # Regular ADD proposal evaluation
+            sample_context = random.sample(existing_tenets, min(len(existing_tenets), 20)) if existing_tenets else []
+            tenet_context = "\n".join([f"- {t.text}" for t in sample_context])
+
+            prompt = f"""Evaluate this proposed tenet for the PureSwarm collective.
 Agent ID: {agent_id}
 Proposing Agent: {proposal.proposed_by}
 Proposed Tenet: "{proposal.tenet_text}"
@@ -137,7 +168,6 @@ EXISTING EXAMPLES (Subset):
 CRITERIA:
 1. Does it duplicate an existing tenet?
 2. Does it align with our core purpose?
-3. If FUSE/DELETE: Does it actually reduce redundancy logically?
 
 Respond ONLY with "YES" to approve or "NO" to reject. Give a one-sentence reason.
 
