@@ -830,6 +830,7 @@ class Simulation:
     async def _interactive_round_review(self, round_num: int) -> None:
         """Pause for interactive review after each round in Squad Warfare."""
         import json
+        from .models import ProposalStatus
 
         # Get competition stats
         stats = self._squad_competition.get_stats_for_dashboard()
@@ -843,11 +844,35 @@ class Simulation:
         print(f"  ROUND {round_num} COMPLETE - SQUAD WARFARE RESULTS")
         print("=" * 60)
 
+        # VOTING BREAKDOWN - Show that democracy is working
+        all_proposals = list(self._consensus._proposals.values())
+        round_proposals = [p for p in all_proposals if p.created_round == round_num]
+
+        adopted_count = sum(1 for p in round_proposals if p.status == ProposalStatus.ADOPTED)
+        rejected_count = sum(1 for p in round_proposals if p.status == ProposalStatus.REJECTED)
+        pending_count = sum(1 for p in round_proposals if p.status == ProposalStatus.PENDING)
+
+        # Calculate total YES/NO votes across all round proposals
+        total_yes = 0
+        total_no = 0
+        for p in round_proposals:
+            total_yes += sum(1 for v in p.votes.values() if v)
+            total_no += sum(1 for v in p.votes.values() if not v)
+
+        print("\n  DEMOCRACY CHECK (residents have agency):")
+        print(f"    Proposals this round: {len(round_proposals)}")
+        print(f"    Adopted: {adopted_count} | Rejected: {rejected_count} | Pending: {pending_count}")
+        if total_yes + total_no > 0:
+            yes_pct = (total_yes / (total_yes + total_no)) * 100
+            print(f"    Total votes: {total_yes} YES ({yes_pct:.1f}%) / {total_no} NO ({100-yes_pct:.1f}%)")
+            if yes_pct < 95:
+                print("    ** Residents are exercising independent judgment **")
+        print("  " + "-" * 40)
+
         if round_result and round_result.get("winner"):
             winner = round_result["winner"]
             margin = round_result.get("margin", 0)
             print(f"\n  WINNER: Squad {winner} (+{margin} margin)")
-            print("  " + "-" * 40)
         else:
             print("\n  NO WINNER THIS ROUND (tie or no activity)")
 
@@ -887,6 +912,15 @@ class Simulation:
             "round": round_num,
             "stats": stats,
             "tenet_count": len(tenets),
+            "voting": {
+                "proposals": len(round_proposals),
+                "adopted": adopted_count,
+                "rejected": rejected_count,
+                "pending": pending_count,
+                "total_yes": total_yes,
+                "total_no": total_no,
+                "yes_percentage": (total_yes / (total_yes + total_no) * 100) if (total_yes + total_no) > 0 else 0
+            },
             "waiting_for_input": True
         }
         review_file.write_text(json.dumps(review_data, indent=2))
