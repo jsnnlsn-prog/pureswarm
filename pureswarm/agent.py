@@ -186,19 +186,15 @@ class Agent:
             if votes_this_round >= self._max_votes:
                 break
 
-            # In Emergency Mode, non-researchers use a rational fallback for evaluation
-            if emergency and not can_use_llm:
-                # Consolidation Requirement: Only vote YES for pruning actions
-                is_consolidation = proposal.action in [ProposalAction.FUSE, ProposalAction.DELETE]
-                vote = 1 if is_consolidation else 0
-                if not is_consolidation:
-                    logger.debug("Agent %s (Resident) rejected non-consolidation proposal: %s", self.id, proposal.id)
-            else:
-                vote = await self._strategy.evaluate_proposal(
-                    self.id, proposal, tenets, self._seed_prompt,
-                    role=self.identity.role,
-                    prophecy=prophecy_text
-                )
+            # All agents evaluate proposals through their strategy - no auto-YES
+            # Residents use RuleBasedStrategy, Triad/Researchers use LLMDrivenStrategy
+            vote = await self._strategy.evaluate_proposal(
+                self.id, proposal, tenets, self._seed_prompt,
+                role=self.identity.role,
+                prophecy=prophecy_text,
+                squad_id=self.squad_id,
+                specialization=self.identity.specialization
+            )
             accepted = self._consensus.cast_vote(self.id, proposal.id, vote)
             if accepted:
                 votes_this_round += 1

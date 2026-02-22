@@ -32,8 +32,21 @@ class BaseStrategy(ABC):
         seed_prompt: str,
         role: AgentRole = AgentRole.RESIDENT,
         prophecy: str | None = None,
+        squad_id: str | None = None,
+        specialization: str | None = None,
     ) -> bool:
-        """Return True to vote YES, False to vote NO."""
+        """Return True to vote YES, False to vote NO.
+
+        Args:
+            agent_id: The voting agent's ID
+            proposal: The proposal to evaluate
+            existing_tenets: Current shared belief system
+            seed_prompt: The hive's founding purpose
+            role: Agent's role (RESIDENT, TRIAD_MEMBER, RESEARCHER)
+            prophecy: Current prophecy from Sovereign (if any)
+            squad_id: Agent's squad (Alpha, Beta, Gamma)
+            specialization: Agent's area of expertise
+        """
 
     @abstractmethod
     async def evaluate_query(

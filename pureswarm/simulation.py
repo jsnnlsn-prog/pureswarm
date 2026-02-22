@@ -28,6 +28,8 @@ from .execution import ExecutionManager
 from .evolution import EvolutionLayer
 from .workshop import WorkshopOrchestrator
 from .squad_competition import SquadCompetition
+from .tenet_clusterer import TenetClusterer
+from .prompt_economy import PromptEconomy
 
 logger = logging.getLogger("pureswarm.simulation")
 
@@ -54,12 +56,14 @@ class Simulation:
         data_dir: Path | None = None,
         allow_external_apis: bool = False,
         memory_backend: MemoryBackend | None = None,
+        interactive: bool = False,
     ) -> None:
         self._num_agents = num_agents
         self._num_rounds = num_rounds
         self._seed_prompt = seed_prompt
         self._data_dir = data_dir or Path("data")
         self._triad_ids: list[str] = []
+        self._interactive = interactive
         
         # Load Sovereign Key for Prophecy
         self._sovereign_key = os.getenv("PURES_SOVEREIGN_PASSPHRASE", "SOVEREIGN_KEY_FALLBACK")
@@ -68,13 +72,26 @@ class Simulation:
         # Emergency Mode Deployment
         self._emergency_mode = os.getenv("EMERGENCY_MODE") == "TRUE"
         self._squad_competition: Optional[SquadCompetition] = None
+        self._tenet_clusterer: Optional[TenetClusterer] = None
+        self._prompt_economy: Optional[PromptEconomy] = None
         if self._emergency_mode:
             logger.warning("!!! EMERGENCY MODE ACTIVE: NEURAL PRUNING INITIALIZED !!!")
             os.environ["CONSOLIDATION_MODE"] = "TRUE"  # Sync with scanner
-            self._squad_competition = SquadCompetition()
-            logger.info("SQUAD COMPETITION ENABLED: Alpha vs Beta vs Gamma")
+            self._squad_competition = SquadCompetition(self._data_dir)
 
-        # Initialize LLM Strategy with fallback support (Venice -> Anthropic)
+            # Initialize Prompt Economy and Tenet Clusterer
+            self._prompt_economy = PromptEconomy(self._data_dir)
+            self._tenet_clusterer = TenetClusterer(self._data_dir)
+
+            # Wire up to squad competition
+            self._squad_competition.set_prompt_economy(self._prompt_economy)
+            self._squad_competition.set_clusterer(self._tenet_clusterer)
+
+            logger.info("SQUAD COMPETITION ENABLED: Alpha vs Beta vs Gamma")
+            logger.info("PROMPT ECONOMY: 10 prompts/squad, winner takes all")
+            logger.info("TENET CLUSTERER: Pre-sorted similarity packages")
+
+        # Initialize LLM Strategy with fallback support (Anthropic -> Venice)
         self._venice_key = os.getenv("VENICE_API_KEY", "")
         self._anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
         self._llm_strategy = None
@@ -86,10 +103,10 @@ class Simulation:
             if stub_internet._venice:
                 self._llm_strategy = LLMDrivenStrategy(stub_internet._venice)
                 providers = []
-                if self._venice_key:
-                    providers.append("Venice")
                 if self._anthropic_key:
                     providers.append("Anthropic")
+                if self._venice_key:
+                    providers.append("Venice")
                 logger.info("Cognitive Upgrade: LLM fallback chain [%s] initialized.", " -> ".join(providers))
 
         # Infrastructure
@@ -164,7 +181,10 @@ class Simulation:
             logger.info("Loaded %d evolved agents", len(self._agents))
         else:
             # First run - create initial population
-            logger.info("Creating initial %d agents", num_agents)
+            from .strategies.rule_based import TECH_SPECIALTIES
+            specialties_list = list(TECH_SPECIALTIES.keys())
+
+            logger.info("Creating initial %d agents with unique specializations", num_agents)
             for i in range(num_agents):
                 name = AGENT_NAMES[i] if i < len(AGENT_NAMES) else f"Agent-{i}"
 
@@ -173,7 +193,7 @@ class Simulation:
                 is_triad = i < 3
                 if is_triad:
                     role = AgentRole.TRIAD_MEMBER
-                
+
                 # SQUAD PARTITIONING
                 squads = ["Alpha", "Beta", "Gamma"]
                 squad_id = squads[i % 3] if self._emergency_mode else None
@@ -182,7 +202,15 @@ class Simulation:
                 if is_researcher:
                     role = AgentRole.RESEARCHER
 
-                identity = AgentIdentity(name=name, role=role)
+                # Assign specialization - this is WHO THEY ARE
+                specialization = specialties_list[i % len(specialties_list)]
+
+                identity = AgentIdentity(
+                    name=name,
+                    role=role,
+                    specialization=specialization
+                )
+
                 # Rule: Triad/Researchers use LLM strategy; Residents use Rule-Based (no API calls)
                 if is_triad or is_researcher:
                     strategy = self._llm_strategy if self._llm_strategy else RuleBasedStrategy()
@@ -209,6 +237,8 @@ class Simulation:
                     self._triad_ids.append(agent.id)
                     # Mark triad membership in evolution traits
                     self._evolution.fitness.get_or_create(agent.id).traits["role"] = "triad"
+                # Store specialization in evolution traits
+                self._evolution.fitness.get_or_create(agent.id).traits["specialty"] = specialization
                 self._bus.subscribe(agent.id)
 
         self._report = SimulationReport(
@@ -227,11 +257,15 @@ class Simulation:
         """Load all evolved agents from fitness data.
 
         Returns a list of Agent objects recreated from their fitness records.
-        Preserves Shinobi triad membership, fitness scores, and traits.
+        Preserves Shinobi triad membership, fitness scores, traits, and specialization.
         """
         import json
+        import hashlib
+        from .strategies.rule_based import TECH_SPECIALTIES
 
         agents: list[Agent] = []
+        specialties_list = list(TECH_SPECIALTIES.keys())
+
         try:
             fitness_data = json.loads(fitness_file.read_text())
 
@@ -249,10 +283,24 @@ class Simulation:
                 if is_researcher:
                     role = AgentRole.RESEARCHER
 
-                # Create agent identity
+                # Load or assign specialization - this is WHO THEY ARE
+                specialization = traits.get("specialty")
+                if not specialization:
+                    # Assign based on consistent hash (stable across sessions)
+                    spec_idx = int(hashlib.sha256(agent_id.encode()).hexdigest(), 16) % len(specialties_list)
+                    specialization = specialties_list[spec_idx]
+                    # Store for future sessions
+                    traits["specialty"] = specialization
+
+                # Create agent identity WITH specialization
                 name = f"Agent-{agent_id[:8]}"
-                identity = AgentIdentity(id=agent_id, name=name, role=role)
-                
+                identity = AgentIdentity(
+                    id=agent_id,
+                    name=name,
+                    role=role,
+                    specialization=specialization
+                )
+
                 # Rule: Triad members use the creative LLM strategy; residents use Rule-Based for stability
                 # UNLESS they are researchers in Emergency Mode
                 if is_triad or is_researcher:
@@ -286,7 +334,10 @@ class Simulation:
                 # Subscribe to message bus
                 self._bus.subscribe(agent.id)
 
-            logger.info("Restored %d triad members from %d total agents",
+            # Save updated traits (with specializations) back to file
+            fitness_file.write_text(json.dumps(fitness_data, indent=2))
+
+            logger.info("Restored %d triad members from %d total agents (specializations assigned)",
                        len(self._triad_ids), len(agents))
 
         except Exception as e:
@@ -431,6 +482,19 @@ class Simulation:
         # Initialize Sovereign Pillars (Requirement #8)
         await self._initialize_pillars()
 
+        # Emergency Mode: Pre-cluster tenets for Squad Warfare
+        if self._emergency_mode and self._tenet_clusterer:
+            tenets = await self._memory.read_tenets()
+            if len(tenets) > 50:  # Only cluster if we have substantial tenets
+                clusters = self._tenet_clusterer.cluster_tenets(tenets)
+                logger.info("SQUAD WARFARE: %d tenets clustered into %d packages of ~%d each",
+                           len(tenets), len(clusters), TenetClusterer.PACKAGE_SIZE)
+                # Update num_rounds to match cluster count if needed
+                if len(clusters) < self._num_rounds:
+                    logger.info("Adjusting rounds from %d to %d (cluster count)",
+                               self._num_rounds, len(clusters))
+                    self._num_rounds = len(clusters)
+
         for round_num in range(1, self._num_rounds + 1):
             # HEARTBEAT: Signal that the simulation is alive
             self._heartbeat(round_num, "Starting round")
@@ -446,6 +510,42 @@ class Simulation:
             
             # Check for demographic growth triggers (Requirement #10)
             await self._check_growth_triggers(round_num)
+
+            # INTERACTIVE MODE: Pause after each round for review
+            if self._interactive and self._emergency_mode and self._squad_competition:
+                await self._interactive_round_review(round_num)
+
+        # SQUAD WARFARE: Check for grand prize at competition end
+        if self._emergency_mode and self._squad_competition:
+            final_tenets = await self._memory.read_tenets()
+            grand_prize = self._squad_competition.check_grand_prize(self._num_rounds)
+            if grand_prize and not grand_prize.get("already_awarded"):
+                winner = grand_prize["winner"]
+                logger.info("=" * 60)
+                logger.info("THE ASCENSION COMPLETE!")
+                logger.info("Winner: Squad %s", winner)
+                logger.info("Final tenet count: %d (down from 900+)", len(final_tenets))
+                logger.info("=" * 60)
+
+                # Award dopamine explosion to winning squad
+                winner_ids = [a.id for a in self._agents if hasattr(a, 'squad_id') and a.squad_id == winner]
+                await self._evolution.dopamine.broadcast_joy(
+                    source_agent="ascension",
+                    mission_id="grand_prize",
+                    intensity=SquadCompetition.GRAND_PRIZE_DOPAMINE,
+                    message=f"THE ASCENSION! Squad {winner} claims ULTIMATE GLORY!"
+                )
+
+                # Apply permanent fitness boost to winners
+                for agent_id in winner_ids:
+                    self._evolution.fitness.apply_multiplier(
+                        agent_id, SquadCompetition.GRAND_PRIZE_FITNESS_MULTIPLIER
+                    )
+
+                # Identify Triad candidates from winning squad
+                candidates = self._squad_competition.get_ascension_candidates(self._agents)
+                if candidates:
+                    logger.info("TRIAD CANDIDATES from Squad %s: %s", winner, candidates)
 
         # Finalise report
         self._report.final_tenets = await self._memory.read_tenets()
@@ -488,6 +588,37 @@ class Simulation:
         # STOP WORKSHOPS IN EMERGENCY MODE TO FOCUS ON CONSOLIDATION
         if self._emergency_mode:
             logger.info("Emergency Mode: Workshops suppressed.")
+
+            # SQUAD WARFARE: Initialize round with prompt economy and clusters
+            if self._squad_competition:
+                round_info = self._squad_competition.start_round(round_num)
+                cluster_info = round_info.get("cluster")
+                if cluster_info:
+                    logger.info("ROUND %d CLUSTER: theme='%s', %d tenets, similarity=%.2f",
+                               round_num, cluster_info.get("theme", "mixed"),
+                               cluster_info.get("tenet_count", 0),
+                               cluster_info.get("similarity", 0))
+
+                    # Write cluster tenet IDs to file for agents to use
+                    cluster = self._tenet_clusterer.get_cluster_for_round(round_num)
+                    if cluster:
+                        all_tenets = await self._memory.read_tenets()
+                        cluster_texts = self._tenet_clusterer.get_tenet_texts_for_cluster(cluster, all_tenets)
+                        cluster_file = self._data_dir / ".current_cluster.json"
+                        import json
+                        cluster_file.write_text(json.dumps({
+                            "round": round_num,
+                            "theme": cluster.theme,
+                            "tenets": cluster_texts  # List of {id, text}
+                        }, indent=2))
+                        logger.info("Cluster %d written with %d tenets for agent focus",
+                                   round_num, len(cluster_texts))
+
+                # Log prompt status for each squad
+                prompts = round_info.get("prompts", {})
+                for squad, available in prompts.items():
+                    frozen_status = "FROZEN" if available <= 0 else f"{available} prompts"
+                    logger.info("  Squad %s: %s", squad, frozen_status)
         else:
             await self._run_workshop(round_num)
 
@@ -695,6 +826,82 @@ class Simulation:
         )
         for text in summary.adopted_tenet_texts:
             logger.info("  + TENET: %s", text)
+
+    async def _interactive_round_review(self, round_num: int) -> None:
+        """Pause for interactive review after each round in Squad Warfare."""
+        import json
+
+        # Get competition stats
+        stats = self._squad_competition.get_stats_for_dashboard()
+        leaderboard = stats.get("leaderboard", [])
+        round_history = stats.get("round_history", [])
+
+        # Find this round's result
+        round_result = next((r for r in round_history if r["round"] == round_num), None)
+
+        print("\n" + "=" * 60)
+        print(f"  ROUND {round_num} COMPLETE - SQUAD WARFARE RESULTS")
+        print("=" * 60)
+
+        if round_result and round_result.get("winner"):
+            winner = round_result["winner"]
+            margin = round_result.get("margin", 0)
+            print(f"\n  WINNER: Squad {winner} (+{margin} margin)")
+            print("  " + "-" * 40)
+        else:
+            print("\n  NO WINNER THIS ROUND (tie or no activity)")
+
+        # Show leaderboard
+        print("\n  LEADERBOARD:")
+        for i, entry in enumerate(leaderboard):
+            rank = ["1st", "2nd", "3rd"][i] if i < 3 else f"{i+1}th"
+            print(f"    {rank}: Squad {entry['squad']} - {entry['total_score']} pts "
+                  f"(FUSE:{entry['fuse_adopted']} DEL:{entry['delete_adopted']} "
+                  f"wins:{entry['round_wins']})")
+
+        # Show prompt economy status
+        prompt_status = stats.get("prompt_economy", {}).get("squads", {})
+        if prompt_status:
+            print("\n  PROMPT ECONOMY:")
+            for squad_id, bank in prompt_status.items():
+                available = bank.get("available", 0)
+                bonus = bank.get("bonus_prompts", 0)
+                status = "FROZEN!" if available <= 0 else f"{available} available"
+                if bonus > 0:
+                    status += f" (+{bonus} bonus)"
+                print(f"    Squad {squad_id}: {status}")
+
+        # Show remaining rounds
+        remaining = stats.get("remaining_rounds", "?")
+        print(f"\n  Remaining clusters: {remaining}")
+
+        # Get current tenet count
+        tenets = await self._memory.read_tenets()
+        print(f"  Current tenet count: {len(tenets)}")
+
+        print("\n" + "=" * 60)
+
+        # Write state to file for external monitoring
+        review_file = self._data_dir / ".round_review.json"
+        review_data = {
+            "round": round_num,
+            "stats": stats,
+            "tenet_count": len(tenets),
+            "waiting_for_input": True
+        }
+        review_file.write_text(json.dumps(review_data, indent=2))
+
+        # Wait for user input
+        print("\n  Press ENTER to continue to next round (or 'q' to quit)...")
+        try:
+            user_input = await asyncio.get_event_loop().run_in_executor(None, input)
+            if user_input.lower().strip() == 'q':
+                logger.info("User requested early termination")
+                # Set rounds to current to end loop
+                self._num_rounds = round_num
+        except EOFError:
+            # Non-interactive environment, continue automatically
+            pass
 
     def _log_final_report(self) -> None:
         logger.info("\n=== SIMULATION COMPLETE ===")

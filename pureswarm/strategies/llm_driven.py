@@ -40,41 +40,105 @@ class LLMDrivenStrategy(BaseStrategy):
         # Determine consolidation mode
         emergency = os.getenv("EMERGENCY_MODE") == "TRUE"
         is_consolidation = emergency or (prophecy and any(kw in prophecy.lower() for kw in ["consolidation", "prune", "merge", "redundant"]))
-        
-        # Token Efficiency: Instead of showing all 600+ tenets, show a window/sample
-        # Always include the core pillars (first 4) + random sample of others
-        pillars = existing_tenets[:4]
-        other_pool = existing_tenets[4:]
-        sample_size = 40
-        sample = random.sample(other_pool, min(len(other_pool), sample_size)) if other_pool else []
-        
-        display_tenets = pillars + sample
-        tenet_list = "\n".join([f"[{t.id}] {t.text}" for t in display_tenets])
+
+        # Token Efficiency: Use pre-sorted cluster if available, else random sample
+        cluster_tenets = None
+        if emergency:
+            # Read the pre-sorted cluster for this round (similarity-grouped)
+            from pathlib import Path
+            cluster_file = Path("data/.current_cluster.json")
+            if cluster_file.exists():
+                try:
+                    cluster_data = json.loads(cluster_file.read_text())
+                    cluster_tenets = cluster_data.get("tenets", [])
+                    logger.info("Using pre-sorted cluster: %d tenets, theme='%s'",
+                               len(cluster_tenets), cluster_data.get("theme", "mixed"))
+                except Exception as e:
+                    logger.warning("Failed to read cluster file: %s", e)
+
+        if cluster_tenets:
+            # Use the pre-sorted cluster (already similarity-grouped for better merging)
+            tenet_list = "\n".join([f"[{t['id']}] {t['text']}" for t in cluster_tenets])
+            total_count = len(existing_tenets)
+        else:
+            # Fallback: random sample (legacy behavior)
+            pillars = existing_tenets[:4]
+            other_pool = existing_tenets[4:]
+            sample_size = 40
+            sample = random.sample(other_pool, min(len(other_pool), sample_size)) if other_pool else []
+            display_tenets = pillars + sample
+            tenet_list = "\n".join([f"[{t.id}] {t.text}" for t in display_tenets])
+            total_count = len(existing_tenets)
         
         if is_consolidation and (role == AgentRole.TRIAD_MEMBER or role == AgentRole.RESEARCHER):
-             prompt = f"""You are a {role.value} of the PureSwarm collective.
-Your Agent ID is: {agent_id}
-Your Mission: THE GREAT CONSOLIDATION (Token-Efficient Sharded Audit)
+             cluster_type = "**PRE-SORTED BY SIMILARITY**" if cluster_tenets else "Random Sample"
+             tenet_count = len(cluster_tenets) if cluster_tenets else len(display_tenets)
+             prompt = f"""# THE GREAT CONSOLIDATION
 
-PROPHETIC GUIDANCE: {prophecy}
+**Agent:** `{agent_id}` | **Role:** {role.value} | **Status:** SQUAD WARFARE ACTIVE
 
-AUDIT POOL (A subset of the {len(existing_tenets)} total tenets):
+---
+
+## Mission
+
+Reduce {len(existing_tenets)} tenets to under 200. You are reviewing a batch of {tenet_count} tenets that are {cluster_type}.
+
+---
+
+## Tenets to Review
+
 {tenet_list}
 
-TASK: Identify redundant or overlapping tenets in this specific subset and propose a FUSION or DELETION.
-If no issues found in this subset, respond with "SKIP".
+---
 
-RULES:
-1. FUSE [id1, id2] -> "Unified text"
-2. DELETE [id1]
-3. Keep results high-density.
+## Actions
 
-Consolidation Proposal:"""
+| Action | Format | Points |
+|--------|--------|--------|
+| **FUSE** | `FUSE [id1, id2, ...] -> "unified tenet text"` | 3 pts per tenet merged |
+| **DELETE** | `DELETE [id1, id2, ...]` | 2 pts per tenet removed |
+
+**Bonus:** Merging 3+ tenets = +0.5x dopamine multiplier
+
+---
+
+## Rules
+
+1. These tenets share **similar keywords** — redundancies exist
+2. FUSE when tenets express the same idea differently
+3. DELETE when a tenet is redundant, empty, or low-value
+4. Preserve core meaning when merging
+5. Be aggressive — the hive is bloated
+
+---
+
+## Response Format
+
+Respond with ONE action:
+
+```
+FUSE [abc123, def456, ghi789] -> "The unified belief that captures all three"
+```
+
+or
+
+```
+DELETE [abc123, def456]
+```
+
+**Your consolidation proposal:**"""
         else:
             # For regular generation, just show the most recent 10 + 10 random
             recent = existing_tenets[-10:] if existing_tenets else []
             rand_gen = random.sample(existing_tenets, min(len(existing_tenets), 10)) if existing_tenets else []
-            gen_context = "\n".join([f"- {t.text}" for t in set(recent + rand_gen)])
+            # Dedupe by tenet ID (Tenet is unhashable, can't use set)
+            seen_ids = set()
+            unique_tenets = []
+            for t in recent + rand_gen:
+                if t.id not in seen_ids:
+                    seen_ids.add(t.id)
+                    unique_tenets.append(t)
+            gen_context = "\n".join([f"- {t.text}" for t in unique_tenets])
             
             prompt = f"""You are an autonomous agent in a decentralized collective called PureSwarm.
 Your Agent ID is: {agent_id}
@@ -114,22 +178,34 @@ Proposed Tenet:"""
         seed_prompt: str,
         role: AgentRole = AgentRole.RESIDENT,
         prophecy: str | None = None,
+        squad_id: str | None = None,
+        specialization: str | None = None,
     ) -> bool:
-        """Use Venice AI to evaluate if a proposal strengthens the collective."""
+        """Use LLM to evaluate if a proposal strengthens the collective.
 
+        Triad and Researchers use this for nuanced evaluation.
+        """
         from ..models import ProposalAction
 
         emergency = os.getenv("EMERGENCY_MODE") == "TRUE"
         is_consolidation = proposal.action in (ProposalAction.FUSE, ProposalAction.DELETE)
 
-        # CRITICAL FIX: For FUSE/DELETE proposals, show the TARGET tenets so LLM can verify
+        # Build agent context
+        agent_context = f"Agent: {agent_id}"
+        if squad_id:
+            agent_context += f" | Squad: {squad_id}"
+        if specialization:
+            agent_context += f" | Expertise: {specialization}"
+
+        # CONSOLIDATION proposals - show TARGET tenets for verification
         if is_consolidation and proposal.target_ids:
-            # Build a lookup for quick access
             tenet_map = {t.id: t for t in existing_tenets}
             target_tenets = [tenet_map.get(tid) for tid in proposal.target_ids if tid in tenet_map]
             target_context = "\n".join([f"[{t.id}] {t.text}" for t in target_tenets if t])
 
             prompt = f"""CONSOLIDATION VOTE: Evaluate this proposal to {'FUSE' if proposal.action == ProposalAction.FUSE else 'DELETE'} tenets.
+
+{agent_context}
 
 TENETS TO BE CONSOLIDATED:
 {target_context}
@@ -137,12 +213,13 @@ TENETS TO BE CONSOLIDATED:
 PROPOSED OUTCOME: "{proposal.tenet_text}"
 Action: {proposal.action.value}
 
-EMERGENCY MODE: {'ACTIVE - The Great Consolidation is underway. VOTE YES unless clearly harmful.' if emergency else 'Inactive'}
+EMERGENCY MODE: {'ACTIVE - The Great Consolidation is underway. Evaluate carefully but support good consolidation.' if emergency else 'Inactive'}
 
 CRITERIA FOR CONSOLIDATION:
 1. Are the target tenets redundant, overlapping, or semantically similar?
 2. Does the proposed unified text preserve the core meaning?
 3. Will this reduce bloat without losing critical beliefs?
+4. Does this affect your area of expertise? If so, evaluate more carefully.
 
 Respond ONLY with "YES" to approve or "NO" to reject.
 
@@ -153,7 +230,8 @@ Decision (YES/NO):"""
             tenet_context = "\n".join([f"- {t.text}" for t in sample_context])
 
             prompt = f"""Evaluate this proposed tenet for the PureSwarm collective.
-Agent ID: {agent_id}
+
+{agent_context}
 Proposing Agent: {proposal.proposed_by}
 Proposed Tenet: "{proposal.tenet_text}"
 Action: {proposal.action.value}
@@ -168,6 +246,7 @@ EXISTING EXAMPLES (Subset):
 CRITERIA:
 1. Does it duplicate an existing tenet?
 2. Does it align with our core purpose?
+3. Is it relevant to your expertise ({specialization or 'general'})?
 
 Respond ONLY with "YES" to approve or "NO" to reject. Give a one-sentence reason.
 

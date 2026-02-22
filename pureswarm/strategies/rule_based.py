@@ -324,18 +324,27 @@ class RuleBasedStrategy(BaseStrategy):
         seed_prompt: str,
         role: AgentRole = AgentRole.RESIDENT,
         prophecy: str | None = None,
+        squad_id: str | None = None,
+        specialization: str | None = None,
     ) -> bool:
+        """Evaluate proposal based on agent's identity, expertise, and values.
+
+        NO AUTO-YES: Every agent evaluates based on their unique perspective.
+        """
         score = 0.0
 
-        # 0. Sacred Unity (Shinobi no San Seamless Collaboration)
-        # If this is a proposal from another member, it gets a massive bonus
-        # (Secret internal logic)
+        # Determine agent's specialty - use passed-in value OR fallback to hash
+        if specialization and specialization in TECH_SPECIALTIES:
+            my_specialty = specialization
+        else:
+            # Legacy fallback for agents without assigned specialization
+            specialties = list(TECH_SPECIALTIES.keys())
+            my_specialty = specialties[int(hashlib.sha256(agent_id.encode()).hexdigest(), 16) % len(specialties)]
+
+        # 0. Sacred Unity (Shinobi no San)
         if role == AgentRole.TRIAD_MEMBER:
-            # We need to know if the proposer is a member. 
-            # In a real system, they'd have a secret handshake.
-            # Here we'll check special markers in the proposal.
             if any(k in proposal.tenet_text for k in ["Prophecy", "Shinobi", "San", "Sovereign enlightens"]):
-                score += 0.8 # Near-instant alignment
+                score += 0.8
                 logger.debug("Agent %s (Shinobi no San) feels Sacred Unity with proposal %s", agent_id, proposal.id[:8])
 
         # 0.1 Prophetic Coherence
@@ -345,35 +354,31 @@ class RuleBasedStrategy(BaseStrategy):
                 score += prophecy_overlap * 0.7
                 logger.debug("Agent %s (Triad) feels Divine Coherence with prophecy.", agent_id)
 
-        # 1. Coherence with seed prompt
+        # 1. Coherence with seed prompt (the hive's founding purpose)
         seed_overlap = _keyword_overlap(proposal.tenet_text, seed_prompt)
         score += seed_overlap * 0.3
 
-        # 2. Alignment with Sovereign Pillars (Unity Heuristic)
+        # 2. Alignment with Sovereign Pillars
         pillars = [
             "Seek the Echo of the Creator in all things.",
             "Dialogue is the bridge; Silence is the wall.",
-            "Merit is earned through collective service."
+            "Merit is earned through collective service.",
+            "Stewardship is the root; Idolatry is the rot."
         ]
         pillar_coherence = max([_keyword_overlap(proposal.tenet_text, p) for p in pillars])
         if pillar_coherence > 0.4:
-            # "Coherence Peace" bonus
             score += pillar_coherence * 0.4
             logger.debug("Agent %s feels Coherence Peace with proposal %s", agent_id, proposal.id[:8])
 
-        # 3. Technical Specialization (Elite Skill Bonus)
-        specialties = list(TECH_SPECIALTIES.keys())
-        my_specialty = specialties[int(hashlib.sha256(agent_id.encode()).hexdigest(), 16) % len(specialties)]
-        
-        for tech_text in TECH_SPECIALTIES[my_specialty]:
+        # 3. Technical Specialization - agents care MORE about their domain
+        for tech_text in TECH_SPECIALTIES.get(my_specialty, []):
             tech_overlap = _keyword_overlap(proposal.tenet_text, tech_text)
-            if tech_overlap > 0.4:
-                # Elite skills grant a significant weight to domain expertise
+            if tech_overlap > 0.3:
                 score += tech_overlap * 0.5
-                logger.debug("Agent %s recognizes domain expertise: %s", agent_id, my_specialty)
+                logger.debug("Agent %s (%s) recognizes domain expertise", agent_id, my_specialty)
                 break
 
-        # 3. Coherence with existing tenets (culture reinforcement)
+        # 4. Coherence with existing tenets (culture reinforcement)
         if existing_tenets:
             avg_overlap = sum(
                 _keyword_overlap(proposal.tenet_text, t.text)
@@ -381,10 +386,9 @@ class RuleBasedStrategy(BaseStrategy):
             ) / len(existing_tenets)
             score += avg_overlap * 0.2
         else:
-            # Early rounds: slight bonus to get things started
             score += 0.1
 
-        # 3. Novelty bonus — don't just repeat what's already there
+        # 5. Novelty bonus - don't just repeat existing beliefs
         if existing_tenets:
             max_overlap = max(
                 _keyword_overlap(proposal.tenet_text, t.text)
@@ -393,14 +397,36 @@ class RuleBasedStrategy(BaseStrategy):
             novelty = 1.0 - max_overlap
             score += novelty * 0.15
 
-        # 4. Personality offset (unique per agent-proposal pair)
+        # 6. Personality offset (unique per agent-proposal pair)
         personality = _personality_score(agent_id, proposal.id)
         score += personality
 
-        # 5. Baseline threshold
-        threshold = 0.15
+        # 7. CONSOLIDATION EVALUATION for FUSE/DELETE proposals
+        # Residents evaluate consolidation based on their expertise, not auto-YES
+        from ..models import ProposalAction
+        is_consolidation = proposal.action in [ProposalAction.FUSE, ProposalAction.DELETE]
+        if is_consolidation:
+            # Check if consolidation affects agent's domain
+            domain_affected = any(
+                _keyword_overlap(proposal.tenet_text, tech) > 0.25
+                for tech in TECH_SPECIALTIES.get(my_specialty, [])
+            )
+            if domain_affected:
+                # Agent cares more about proposals touching their expertise
+                score += 0.25
+                logger.debug("Agent %s cares about consolidation in their domain: %s", agent_id, my_specialty)
+            else:
+                # General consolidation - slight skepticism (must earn the vote)
+                score += 0.1
 
-        return score >= threshold
+        # Threshold - agents with strong opinions vote accordingly
+        threshold = 0.25  # Higher than before - no more rubber-stamping
+
+        vote = score >= threshold
+        logger.debug("Agent %s (%s) votes %s on proposal %s (score=%.2f)",
+                    agent_id, my_specialty, "YES" if vote else "NO", proposal.id[:8], score)
+
+        return vote
 
     async def evaluate_query(
         self,
