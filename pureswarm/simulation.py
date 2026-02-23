@@ -16,7 +16,7 @@ from typing import Optional, List
 from .agent import Agent
 from .chronicle import Chronicle
 from .consensus import ConsensusProtocol
-from .memory import SharedMemory, MemoryBackend, CONSENSUS_GUARD
+from .memory import SharedMemory, MemoryBackend, CONSENSUS_GUARD, AgentMemoryStore
 from .message_bus import MessageBus
 from .models import AgentIdentity, RoundSummary, SimulationReport, Tenet, ProposalStatus, AgentRole, Message, MessageType, AuditEntry, ChronicleCategory, ProposalAction
 from .security import AuditLogger, LobstertailScanner, SandboxChecker
@@ -141,6 +141,9 @@ class Simulation:
         # Evolution Layer: Dopamine (shared joy), Fitness (natural selection), Reproduction (growth)
         self._evolution = EvolutionLayer(self._bus, self._data_dir)
 
+        # Phase 6: Agent Memory Store (persistent lifetime_memory and voting_history)
+        self._agent_memory_store = AgentMemoryStore(self._data_dir)
+
         # Load existing evolved agents or create new ones FIRST
         # (so we know the actual agent count for consensus)
         self._agents: list[Agent] = []
@@ -217,6 +220,9 @@ class Simulation:
                 else:
                     strategy = RuleBasedStrategy()
 
+                # Phase 6: Load persistent memory if available
+                initial_memory = self._agent_memory_store.load_agent_memory(identity.id)
+
                 agent = Agent(
                     identity=identity,
                     strategy=strategy,
@@ -232,6 +238,7 @@ class Simulation:
                     squad_id=squad_id,
                     is_researcher=is_researcher,
                     chronicle=self._chronicle,
+                    initial_memory=initial_memory,
                 )
                 self._agents.append(agent)
                 if is_triad:
@@ -309,6 +316,9 @@ class Simulation:
                 else:
                     strategy = RuleBasedStrategy()
 
+                # Phase 6: Load persistent memory if available
+                initial_memory = self._agent_memory_store.load_agent_memory(agent_id)
+
                 # Recreate agent
                 agent = Agent(
                     identity=identity,
@@ -325,6 +335,7 @@ class Simulation:
                     squad_id=squad_id,
                     is_researcher=is_researcher,
                     chronicle=self._chronicle,
+                    initial_memory=initial_memory,
                 )
 
                 agents.append(agent)
@@ -838,6 +849,9 @@ class Simulation:
                     }
                 )
 
+        # Phase 6: Save agent memories at end of each round
+        await self._agent_memory_store.save_all_agents(self._agents)
+
         return RoundSummary(
             round_number=round_num,
             proposals_made=total_proposals,
@@ -1168,6 +1182,9 @@ class Simulation:
             squads = ["Alpha", "Beta", "Gamma"]
             squad_id = squads[len(self._agents) % 3] if self._emergency_mode else None
 
+            # Phase 6: Load persistent memory if available (for re-spawned agents)
+            initial_memory = self._agent_memory_store.load_agent_memory(agent_id)
+
             agent = Agent(
                 identity=identity,
                 strategy=strategy,
@@ -1180,6 +1197,7 @@ class Simulation:
                 squad_id=squad_id,
                 is_researcher=False,
                 chronicle=self._chronicle,
+                initial_memory=initial_memory,
             )
             self._agents.append(agent)
             self._bus.subscribe(agent.id)

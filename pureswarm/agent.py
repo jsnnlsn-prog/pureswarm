@@ -57,6 +57,7 @@ class Agent:
         squad_id: str | None = None,
         is_researcher: bool = False,
         chronicle: Optional[Chronicle] = None,
+        initial_memory: tuple[list[str], list[VoteRecord]] | None = None,
     ) -> None:
         self.identity = identity
         self.squad_id = squad_id
@@ -79,10 +80,16 @@ class Agent:
         is_triad = self.identity.role == AgentRole.TRIAD_MEMBER
         self._internet = InternetAccess(self.id, is_triad)
 
-        # Internal state
+        # Internal state - Phase 6: Load from persistent storage if provided
         self._round_observations: list[str] = []
-        self._lifetime_memory: list[str] = []
-        self._voting_history: list[VoteRecord] = []  # Track past voting decisions
+        if initial_memory:
+            self._lifetime_memory = initial_memory[0]
+            self._voting_history = initial_memory[1]
+            logger.debug("Agent %s restored with %d memories, %d vote records",
+                        self.id, len(self._lifetime_memory), len(self._voting_history))
+        else:
+            self._lifetime_memory: list[str] = []
+            self._voting_history: list[VoteRecord] = []  # Track past voting decisions
         self._deliberation_reasoning: dict[str, str] = {}  # Phase 5: proposal_id -> reasoning
 
     @property
@@ -105,6 +112,14 @@ class Agent:
         reasoning = self._deliberation_reasoning.copy()
         self._deliberation_reasoning.clear()
         return reasoning
+
+    def get_memory_snapshot(self) -> tuple[list[str], list[VoteRecord]]:
+        """Return current memory state for persistence (Phase 6).
+
+        Returns:
+            Tuple of (lifetime_memory, voting_history)
+        """
+        return self._lifetime_memory.copy(), self._voting_history.copy()
 
     # ------------------------------------------------------------------
     # Main loop (called once per simulation round)

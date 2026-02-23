@@ -3,7 +3,7 @@
 import asyncio
 import pytest
 from pathlib import Path
-from pureswarm.memory import SharedMemory, _CONSENSUS_SENTINEL
+from pureswarm.memory import SharedMemory, CONSENSUS_GUARD
 from pureswarm.models import Tenet
 from pureswarm.security import AuditLogger
 
@@ -24,7 +24,7 @@ async def test_read_empty(tmp_data):
 @pytest.mark.asyncio
 async def test_write_with_sentinel(tmp_data):
     tenet = Tenet(text="Test tenet", proposed_by="agent-1")
-    await tmp_data.write_tenet(tenet, _auth=_CONSENSUS_SENTINEL)
+    await tmp_data.write_tenet(tenet, _auth=CONSENSUS_GUARD)
     tenets = await tmp_data.read_tenets()
     assert len(tenets) == 1
     assert tenets[0].text == "Test tenet"
@@ -40,16 +40,18 @@ async def test_write_without_sentinel_raises(tmp_data):
 @pytest.mark.asyncio
 async def test_archive_created(tmp_data):
     tenet = Tenet(text="Archived tenet", proposed_by="agent-1")
-    await tmp_data.write_tenet(tenet, _auth=_CONSENSUS_SENTINEL)
+    await tmp_data.write_tenet(tenet, _auth=CONSENSUS_GUARD)
     archive_dir = tmp_data._archive_dir
     archives = list(archive_dir.glob("tenets_*.json"))
     assert len(archives) >= 1
 
 
 @pytest.mark.asyncio
-async def test_reset(tmp_data):
-    tenet = Tenet(text="Will be cleared", proposed_by="agent-1")
-    await tmp_data.write_tenet(tenet, _auth=_CONSENSUS_SENTINEL)
+async def test_reset_preserves_tenets(tmp_data):
+    """Reset is now a no-op that preserves tenets across simulation runs."""
+    tenet = Tenet(text="Will be preserved", proposed_by="agent-1")
+    await tmp_data.write_tenet(tenet, _auth=CONSENSUS_GUARD)
     assert len(await tmp_data.read_tenets()) == 1
     await tmp_data.reset()
-    assert len(await tmp_data.read_tenets()) == 0
+    # Tenets persist across resets (collective memory preserved)
+    assert len(await tmp_data.read_tenets()) == 1

@@ -1,71 +1,65 @@
 """
 Next Session Cheat Sheet (Ralph Wiggum Style)
 
-Read VOTING_FIX.md for context. Phase 1-5 complete.
+Read VOTING_FIX.md for context. Phase 1-6 complete.
 
-Task: Phase 6 - Persistent memory across sessions
+Task: Phase 7 - Redis backend for agent memory (DISTRIBUTED_ARCHITECTURE.md)
 
-=== THE PROBLEM ===
+=== PHASE 6 COMPLETE ===
 
-Individual agent memory is LOST when simulation ends:
-- _lifetime_memory: list[str]  (observations like "Round 5: Proposal blocked")
-- _voting_history: list[VoteRecord]  (past votes + outcomes)
-
-Shared memory ALREADY persists:
-- data/tenets.json (SharedMemory - consensus-gated)
-- data/chronicle.json (Chronicle - community history)
-- data/agent_fitness.json (FitnessTracker - traits, successes)
-
-=== THE SOLUTION ===
-
-Option B recommended: Single file data/agent_memories.json
+Individual agent memory NOW PERSISTS across sessions:
+- data/agent_memories.json stores lifetime_memory and voting_history
+- AgentMemoryStore class in pureswarm/memory.py
+- Simulation loads memory on agent creation
+- Simulation saves memory at end of each round
 
 Structure:
 {
     "agent_id_1": {
         "lifetime_memory": ["obs1", "obs2", ...],
-        "voting_history": [VoteRecord, VoteRecord, ...]
+        "voting_history": [VoteRecord, VoteRecord, ...],
+        "last_active": "2024-01-01T00:00:00Z"
     },
     ...
 }
 
-=== KEY FILES ===
+=== WHAT WORKS NOW ===
 
-pureswarm/memory.py        - SharedMemory + RedisMemory backends (reference pattern)
-pureswarm/agent.py         - Add save/load methods for _lifetime_memory, _voting_history
-pureswarm/simulation.py    - Wire save on round end, load on agent creation
-pureswarm/evolution.py     - FitnessTracker pattern (already saves to JSON)
+- Triad votes first, residents follow
+- Vote outcomes saved to agent memory (NOW PERSISTED!)
+- +0.4 bonus when Triad says "approve"
+- -0.3 penalty when Triad says "reject"
+- Triad explains their votes (deliberation reasoning)
+- Residents see why Triad voted that way
+- Agents remember their past across simulation restarts
 
-=== DISTRIBUTED ARCHITECTURE ===
+=== KEY FILES MODIFIED (Phase 6) ===
+
+pureswarm/memory.py     - Added AgentMemoryStore class (lines 437-543)
+pureswarm/agent.py      - Added initial_memory param, get_memory_snapshot()
+pureswarm/simulation.py - Loads memory on agent creation, saves each round
+
+=== NEXT PHASE: REDIS BACKEND ===
 
 docs/archive/DISTRIBUTED_ARCHITECTURE.md line 121:
     memory:{agent_id}  HASH  Agent-specific knowledge
 
 Redis schema already designed! Implementation path:
-1. File-based first (data/agent_memories.json)
-2. Redis backend later (memory:{agent_id} HASH)
+1. File-based done (data/agent_memories.json) [COMPLETE]
+2. Redis backend (memory:{agent_id} HASH) [NEXT]
 
-=== WHAT WORKS NOW ===
-
-- Triad votes first, residents follow
-- Vote outcomes saved to agent memory (in-memory only!)
-- +0.4 bonus when Triad says "approve"
-- -0.3 penalty when Triad says "reject"
-- Triad explains their votes (deliberation reasoning)
-- Residents see why Triad voted that way
-
-=== PHASE 5 CHANGES (just completed) ===
-
-- strategies/base.py: evaluate_proposal returns (vote, reasoning) tuple
-- strategies/llm_driven.py: Parses LLM response for reasoning after YES/NO
-- agent.py: Stores deliberation in _deliberation_reasoning dict
-- simulation.py: Publishes deliberations to .squad_deliberations.json
-- models.py: VotingContext has triad_deliberations field
+Pattern to follow:
+- See RedisMemory class in memory.py for tenet storage
+- AgentMemoryStore needs similar async Redis methods
+- Config toggle: memory.backend = "file" | "redis"
 
 === GIT STATUS ===
 
-Uncommitted changes from Phase 5 implementation.
-Run: git status to see what needs committing.
+Phase 6 changes ready to commit:
+- pureswarm/memory.py (AgentMemoryStore)
+- pureswarm/agent.py (initial_memory, get_memory_snapshot)
+- pureswarm/simulation.py (load/save wiring)
+- tests/test_memory.py (fixed imports, updated reset test)
 
 "I'm helping!" - Ralph Wiggum, signing off.
 

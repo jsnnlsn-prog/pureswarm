@@ -7,6 +7,9 @@ Tenets (shared beliefs) can be stored as:
 Writes are ONLY permitted through the consensus protocol — direct
 mutation is blocked. Every write archives the previous version for
 auditability.
+
+Individual agent memory (lifetime observations, voting history) can
+also be persisted here for session continuity.
 """
 
 from __future__ import annotations
@@ -16,11 +19,12 @@ import json
 import logging
 import shutil
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from .models import AuditEntry, Tenet
+from .models import AuditEntry, Tenet, VoteRecord
 from .security import AuditLogger, LobstertailScanner
 
 if TYPE_CHECKING:
@@ -431,3 +435,159 @@ async def create_memory_backend(
         # Default: file-based
         data_dir = Path(config.get("security", {}).get("data_directory", "data"))
         return SharedMemory(data_dir, audit_logger, scanner)
+
+
+# ---------------------------------------------------------------------------
+# Agent Memory Store (Phase 6: Persistent individual memory)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class AgentMemoryData:
+    """Individual agent's persistent memory across sessions."""
+    agent_id: str
+    lifetime_memory: list[str] = field(default_factory=list)
+    voting_history: list[dict] = field(default_factory=list)  # VoteRecord as dict
+    last_active: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "agent_id": self.agent_id,
+            "lifetime_memory": self.lifetime_memory,
+            "voting_history": self.voting_history,
+            "last_active": self.last_active.isoformat(),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "AgentMemoryData":
+        return cls(
+            agent_id=data["agent_id"],
+            lifetime_memory=data.get("lifetime_memory", []),
+            voting_history=data.get("voting_history", []),
+            last_active=datetime.fromisoformat(data.get("last_active", datetime.now(timezone.utc).isoformat())),
+        )
+
+
+class AgentMemoryStore:
+    """Persistent storage for individual agent memory.
+
+    Stores lifetime_memory (observations) and voting_history (past votes)
+    so agents retain their experience across simulation sessions.
+
+    Pattern follows FitnessTracker from evolution.py.
+
+    File structure (data/agent_memories.json):
+    {
+        "agent_id_1": {
+            "lifetime_memory": ["obs1", "obs2", ...],
+            "voting_history": [VoteRecord, VoteRecord, ...],
+            "last_active": "2024-01-01T00:00:00Z"
+        },
+        ...
+    }
+
+    Future: Redis backend using memory:{agent_id} HASH
+    (see docs/archive/DISTRIBUTED_ARCHITECTURE.md line 121)
+    """
+
+    def __init__(self, data_dir: Path | None = None) -> None:
+        self._data_dir = data_dir or Path("data")
+        self._data_dir.mkdir(parents=True, exist_ok=True)
+        self._memory_file = self._data_dir / "agent_memories.json"
+        self._agents: dict[str, AgentMemoryData] = {}
+        self._lock = asyncio.Lock()
+        self._load()
+
+    def _load(self) -> None:
+        """Load agent memory data from disk."""
+        if self._memory_file.exists():
+            try:
+                data = json.loads(self._memory_file.read_text(encoding="utf-8"))
+                for agent_id, info in data.items():
+                    self._agents[agent_id] = AgentMemoryData.from_dict(info)
+                logger.info("Loaded memory data for %d agents", len(self._agents))
+            except Exception as e:
+                logger.warning("Failed to load agent memory data: %s", e)
+
+    def _save(self) -> None:
+        """Save agent memory data to disk."""
+        try:
+            data = {aid: mem.to_dict() for aid, mem in self._agents.items()}
+            self._memory_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        except Exception as e:
+            logger.warning("Failed to save agent memory data: %s", e)
+
+    def get_memory(self, agent_id: str) -> AgentMemoryData:
+        """Get agent memory, creating empty record if new."""
+        if agent_id not in self._agents:
+            self._agents[agent_id] = AgentMemoryData(agent_id=agent_id)
+        return self._agents[agent_id]
+
+    def save_agent_memory(
+        self,
+        agent_id: str,
+        lifetime_memory: list[str],
+        voting_history: list[VoteRecord],
+    ) -> None:
+        """Save an agent's memory to persistent storage."""
+        mem = self.get_memory(agent_id)
+        mem.lifetime_memory = lifetime_memory.copy()
+        # Convert VoteRecord to dict for JSON serialization
+        mem.voting_history = [
+            {
+                "proposal_id": v.proposal_id,
+                "action": v.action.value if hasattr(v.action, "value") else str(v.action),
+                "vote": v.vote,
+                "outcome": v.outcome.value if hasattr(v.outcome, "value") else str(v.outcome),
+                "round_number": v.round_number,
+            }
+            for v in voting_history
+        ]
+        mem.last_active = datetime.now(timezone.utc)
+        self._save()
+        logger.debug("Saved memory for agent %s: %d observations, %d votes",
+                    agent_id, len(lifetime_memory), len(voting_history))
+
+    def load_agent_memory(self, agent_id: str) -> tuple[list[str], list[VoteRecord]]:
+        """Load an agent's memory from persistent storage.
+
+        Returns:
+            Tuple of (lifetime_memory, voting_history)
+        """
+        from .models import ProposalAction, ProposalStatus
+
+        mem = self.get_memory(agent_id)
+
+        # Convert stored dicts back to VoteRecord objects
+        voting_history = []
+        for v in mem.voting_history:
+            try:
+                voting_history.append(VoteRecord(
+                    proposal_id=v["proposal_id"],
+                    action=ProposalAction(v["action"]) if v.get("action") else ProposalAction.ADD,
+                    vote=v["vote"],
+                    outcome=ProposalStatus(v["outcome"]) if v.get("outcome") else ProposalStatus.PENDING,
+                    round_number=v.get("round_number", 0),
+                ))
+            except Exception as e:
+                logger.debug("Skipping malformed vote record: %s", e)
+
+        logger.debug("Loaded memory for agent %s: %d observations, %d votes",
+                    agent_id, len(mem.lifetime_memory), len(voting_history))
+        return mem.lifetime_memory.copy(), voting_history
+
+    async def save_all_agents(self, agents: list[Any]) -> None:
+        """Save memory for all agents (async-safe for end-of-round).
+
+        Args:
+            agents: List of Agent objects with _lifetime_memory and _voting_history
+        """
+        async with self._lock:
+            for agent in agents:
+                if hasattr(agent, "_lifetime_memory") and hasattr(agent, "_voting_history"):
+                    self.save_agent_memory(
+                        agent.id,
+                        agent._lifetime_memory,
+                        agent._voting_history,
+                    )
+            logger.info("Saved memory for %d agents", len(agents))
