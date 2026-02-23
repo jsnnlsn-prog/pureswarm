@@ -28,6 +28,7 @@ class HiveHUD:
         self.data_dir = data_dir
         self.history = []
         self.last_tenet_count = 0
+        self.agent_count = 0
         self.start_time = time.time()
         self.squad_competition = None
 
@@ -38,6 +39,17 @@ class HiveHUD:
                 self.squad_competition = SquadCompetition()
             except ImportError:
                 pass
+
+    def _get_agent_count(self) -> int:
+        """Get current agent count from fitness file."""
+        fitness_file = self.data_dir / "agent_fitness.json"
+        if fitness_file.exists():
+            try:
+                data = json.loads(fitness_file.read_text(encoding="utf-8"))
+                self.agent_count = len(data)
+            except:
+                pass
+        return self.agent_count or 187  # fallback
 
     def get_header(self) -> Panel:
         grid = Table.grid(expand=True)
@@ -54,14 +66,18 @@ class HiveHUD:
         return Panel(grid, style="bold cyan", box=box.DOUBLE)
 
     def get_hive_map(self) -> Panel:
-        """Render an ASCII grid representing the 187 agents."""
+        """Render an ASCII grid representing agents."""
+        agent_count = self._get_agent_count()
         grid = Table.grid(padding=0)
-        # 187 agents -> ~17x11 grid
-        for _ in range(17):
+        # Dynamic grid sizing based on agent count
+        cols = min(20, max(10, int(agent_count ** 0.5) + 1))
+        rows = (agent_count + cols - 1) // cols
+
+        for _ in range(cols):
             grid.add_column()
-        
+
         agents = []
-        for i in range(187):
+        for i in range(agent_count):
             # Dynamic coloring based on "activity"
             if random.random() > 0.95:
                 char = "[bold white]@[/bold white]" # Active/Broadcasting
@@ -70,9 +86,14 @@ class HiveHUD:
             else:
                 char = "[dim green]•[/dim green]" # Resting
             agents.append(char)
-        
-        for r in range(11):
-            grid.add_row(*agents[r*17:(r+1)*17])
+
+        for r in range(rows):
+            row_data = agents[r*cols:(r+1)*cols]
+            if row_data:
+                # Pad if needed
+                while len(row_data) < cols:
+                    row_data.append(" ")
+                grid.add_row(*row_data)
             
         return Panel(
             Align.center(grid),
@@ -107,20 +128,27 @@ class HiveHUD:
         heartbeat_status = "[bold red]OFFLINE[/bold red]"
         if heartbeat_data:
             ts = heartbeat_data.get("timestamp")
+            round_num = heartbeat_data.get("round", "?")
+            status = heartbeat_data.get("status", "unknown")
             if ts:
-                 last_dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-                 now = datetime.now(datetime.now().astimezone().tzinfo)
-                 diff = (now - last_dt).total_seconds()
-                 if diff < 15:
-                     heartbeat_status = "[bold green]SYNCED[/bold green]"
-                 elif diff < 60:
-                     heartbeat_status = "[bold yellow]LAGGING[/bold yellow]"
+                try:
+                    # Parse ISO format timestamp
+                    last_dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                    now = datetime.now(last_dt.tzinfo) if last_dt.tzinfo else datetime.now()
+                    diff = abs((now - last_dt.replace(tzinfo=None)).total_seconds())
+                    if diff < 30:
+                        heartbeat_status = f"[bold green]R{round_num} SYNCED[/bold green]"
+                    elif diff < 120:
+                        heartbeat_status = f"[bold yellow]R{round_num} {status[:10]}[/bold yellow]"
+                except Exception:
+                    heartbeat_status = f"[bold yellow]R{round_num}[/bold yellow]"
 
         table = Table.grid(expand=True)
         table.add_column(style="cyan")
         table.add_column(justify="right", style="bold white")
         
-        table.add_row("HIVE_POPULATION", "187 AGENTS")
+        agent_count = self._get_agent_count()
+        table.add_row("HIVE_POPULATION", f"{agent_count} AGENTS")
         table.add_row("TENET_DENSITY", f"{tenet_count} PROTOCOLS")
         table.add_row("HEARTBEAT_SIGNAL", heartbeat_status)
         table.add_row("CONSENSUS_STABILITY", "[bold green]94.1%[/bold green]")
@@ -142,13 +170,16 @@ class HiveHUD:
         return Panel(content, title="[bold cyan]MISSION VITALS[/bold cyan]", border_style="cyan")
 
     def get_ticker(self) -> Panel:
-        log_file = self.data_dir / "logs" / "audit.log"
+        # Check both .jsonl and .log formats
+        log_file = self.data_dir / "logs" / "audit.jsonl"
+        if not log_file.exists():
+            log_file = self.data_dir / "logs" / "audit.log"
         events = []
         if log_file.exists():
             try:
-                lines = log_file.read_text().splitlines()
+                lines = log_file.read_text(encoding="utf-8").splitlines()
                 for line in lines[-20:]:
-                    if "FUSE" in line or "DELETE" in line or "proposal" in line:
+                    if "FUSE" in line or "DELETE" in line or "proposal" in line or "tenet" in line:
                         events.append(line)
             except:
                 pass
