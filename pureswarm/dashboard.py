@@ -31,6 +31,8 @@ class HiveHUD:
         self.agent_count = 0
         self.start_time = time.time()
         self.squad_competition = None
+        self.starting_tenets = 905  # The Great Consolidation started here
+        self.target_tenets = 200    # Goal
 
         # Try to load squad competition if in emergency mode
         if os.getenv("EMERGENCY_MODE") == "TRUE":
@@ -235,6 +237,152 @@ class HiveHUD:
             border_style="magenta"
         )
 
+    def get_consolidation_tally(self) -> Panel:
+        """Render the consolidation progress tally."""
+        current = self.last_tenet_count or 880
+        reduced = self.starting_tenets - current
+        remaining = current - self.target_tenets
+        progress_pct = (reduced / (self.starting_tenets - self.target_tenets)) * 100 if self.starting_tenets > self.target_tenets else 0
+
+        table = Table.grid(expand=True)
+        table.add_column(style="cyan", width=12)
+        table.add_column(justify="right", style="bold white")
+
+        table.add_row("STARTED", f"[dim]{self.starting_tenets}[/dim]")
+        table.add_row("CURRENT", f"[bold yellow]{current}[/bold yellow]")
+        table.add_row("REDUCED", f"[bold green]-{reduced}[/bold green]" if reduced > 0 else "[dim]0[/dim]")
+        table.add_row("TARGET", f"[bold cyan]{self.target_tenets}[/bold cyan]")
+        table.add_row("TO GO", f"[bold red]{remaining}[/bold red]" if remaining > 0 else "[bold green]DONE![/bold green]")
+
+        # Progress bar
+        bar_width = 20
+        filled = int((progress_pct / 100) * bar_width)
+        bar = "[bold green]" + "█" * filled + "[/bold green][dim]" + "░" * (bar_width - filled) + "[/dim]"
+
+        content = Group(
+            table,
+            Text(""),
+            Text.from_markup(f"  {bar} {progress_pct:.1f}%")
+        )
+
+        return Panel(
+            content,
+            title="[bold yellow]📊 CONSOLIDATION TALLY[/bold yellow]",
+            border_style="yellow"
+        )
+
+    def get_vote_tally(self) -> Panel:
+        """Render the YES/NO vote tally from round review."""
+        review_file = self.data_dir / ".round_review.json"
+
+        total_yes = 0
+        total_no = 0
+        round_num = "?"
+        adopted = 0
+        rejected = 0
+        pending = 0
+
+        if review_file.exists():
+            try:
+                data = json.loads(review_file.read_text(encoding="utf-8"))
+                # Try new 'voting' structure first, fall back to 'stats'
+                voting = data.get("voting", data.get("stats", {}))
+                total_yes = voting.get("total_yes", 0)
+                total_no = voting.get("total_no", 0)
+                round_num = data.get("round", "?")
+                adopted = voting.get("adopted", 0)
+                rejected = voting.get("rejected", 0)
+                pending = voting.get("pending", 0)
+            except:
+                pass
+
+        total_votes = total_yes + total_no
+        yes_pct = (total_yes / total_votes * 100) if total_votes > 0 else 0
+        no_pct = 100 - yes_pct if total_votes > 0 else 0
+
+        table = Table.grid(expand=True)
+        table.add_column(style="cyan", width=10)
+        table.add_column(justify="right", style="bold white")
+
+        table.add_row("ROUND", f"[bold magenta]{round_num}[/bold magenta]")
+        table.add_row("YES", f"[bold green]{total_yes}[/bold green] ({yes_pct:.0f}%)")
+        table.add_row("NO", f"[bold red]{total_no}[/bold red] ({no_pct:.0f}%)")
+        table.add_row("", "")
+        table.add_row("ADOPTED", f"[bold green]{adopted}[/bold green]")
+        table.add_row("REJECTED", f"[bold red]{rejected}[/bold red]")
+        table.add_row("PENDING", f"[bold yellow]{pending}[/bold yellow]")
+
+        # Visual bar for YES/NO ratio
+        bar_width = 16
+        yes_bar = int((yes_pct / 100) * bar_width) if total_votes > 0 else 0
+        no_bar = bar_width - yes_bar
+        ratio_bar = "[bold green]" + "█" * yes_bar + "[/bold green][bold red]" + "█" * no_bar + "[/bold red]"
+
+        content = Group(
+            table,
+            Text(""),
+            Text.from_markup(f"  {ratio_bar}")
+        )
+
+        return Panel(
+            content,
+            title="[bold green]🗳 VOTE TALLY[/bold green]",
+            border_style="green"
+        )
+
+    def get_proposals_panel(self) -> Panel:
+        """Render active proposals with vote counts."""
+        review_file = self.data_dir / ".round_review.json"
+
+        proposals = []
+        if review_file.exists():
+            try:
+                data = json.loads(review_file.read_text(encoding="utf-8"))
+                proposals = data.get("proposals_detail", [])
+            except:
+                pass
+
+        table = Table(box=box.SIMPLE, expand=True, show_header=True)
+        table.add_column("TYPE", style="cyan", width=5)
+        table.add_column("PROPOSAL", style="white", ratio=2)
+        table.add_column("Y/N", justify="right", style="bold", width=7)
+        table.add_column("ST", justify="center", width=3)
+
+        if proposals:
+            for p in proposals[:6]:  # Show top 6
+                action = p.get("action", "?")[:4].upper()
+                text = p.get("text", "")[:40]
+                yes = p.get("yes", 0)
+                no = p.get("no", 0)
+                status = p.get("status", "pending")
+
+                # Status indicator
+                if status == "adopted":
+                    st = "[bold green]✓[/bold green]"
+                elif status == "rejected":
+                    st = "[bold red]✗[/bold red]"
+                else:
+                    st = "[yellow]⋯[/yellow]"
+
+                # Action color
+                if "FUSE" in action:
+                    action_fmt = f"[yellow]{action}[/yellow]"
+                elif "DEL" in action:
+                    action_fmt = f"[red]{action}[/red]"
+                else:
+                    action_fmt = f"[cyan]{action}[/cyan]"
+
+                vote_str = f"[green]{yes}[/green]/[red]{no}[/red]"
+                table.add_row(action_fmt, text, vote_str, st)
+        else:
+            table.add_row("", "[dim]Awaiting proposals...[/dim]", "", "")
+
+        return Panel(
+            table,
+            title="[bold cyan]📜 ACTIVE PROPOSALS[/bold cyan]",
+            border_style="cyan"
+        )
+
 def run_dashboard():
     # Detect data dir relative to script
     data_dir = Path("data")
@@ -255,18 +403,25 @@ def run_dashboard():
     )
     layout["main"].split_column(
         Layout(name="map", ratio=1),
+        Layout(name="proposals", ratio=1),
         Layout(name="ticker", ratio=1),
     )
     layout["side"].split_column(
         Layout(name="vitals", ratio=2),
+        Layout(name="tally", ratio=1),
+        Layout(name="votes", ratio=1),
         Layout(name="arena", ratio=1),
     )
 
-    with Live(layout, refresh_per_second=4, screen=True):
+    # screen=False for better terminal compatibility (antigravity, VSCode, etc.)
+    with Live(layout, refresh_per_second=2, screen=False):
         while True:
             layout["header"].update(hud.get_header())
             layout["map"].update(hud.get_hive_map())
+            layout["proposals"].update(hud.get_proposals_panel())
             layout["vitals"].update(hud.get_vitals())
+            layout["tally"].update(hud.get_consolidation_tally())
+            layout["votes"].update(hud.get_vote_tally())
             layout["arena"].update(hud.get_squad_leaderboard())
             layout["ticker"].update(hud.get_ticker())
             

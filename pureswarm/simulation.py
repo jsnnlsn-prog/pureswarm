@@ -874,6 +874,67 @@ class Simulation:
         for text in summary.adopted_tenet_texts:
             logger.info("  + TENET: %s", text)
 
+        # Write proposals to round_review.json for dashboard
+        self._write_round_review(round_num, summary)
+
+    def _write_round_review(self, round_num: int, summary: RoundSummary) -> None:
+        """Write round review data for dashboard consumption."""
+        import json
+        from .models import ProposalStatus
+
+        # Get all proposals from this round
+        all_proposals = list(self._consensus._proposals.values())
+        round_proposals = [p for p in all_proposals if p.created_round == round_num]
+
+        # Calculate vote totals
+        total_yes = 0
+        total_no = 0
+        adopted_count = 0
+        rejected_count = 0
+        pending_count = 0
+
+        proposals_list = []
+        for p in round_proposals:
+            yes_votes = sum(1 for v in p.votes.values() if v)
+            no_votes = sum(1 for v in p.votes.values() if not v)
+            total_yes += yes_votes
+            total_no += no_votes
+
+            if p.status == ProposalStatus.ADOPTED:
+                adopted_count += 1
+            elif p.status == ProposalStatus.REJECTED:
+                rejected_count += 1
+            else:
+                pending_count += 1
+
+            proposals_list.append({
+                "id": p.id[:8],
+                "action": p.action.value if hasattr(p.action, 'value') else str(p.action),
+                "text": p.tenet_text[:80] + "..." if len(p.tenet_text) > 80 else p.tenet_text,
+                "targets": len(p.target_ids) if p.target_ids else 0,
+                "yes": yes_votes,
+                "no": no_votes,
+                "status": p.status.value if hasattr(p.status, 'value') else str(p.status)
+            })
+
+        review_data = {
+            "round": round_num,
+            "tenet_count": summary.total_tenets,
+            "voting": {
+                "proposals": len(round_proposals),
+                "adopted": adopted_count,
+                "rejected": rejected_count,
+                "pending": pending_count,
+                "total_yes": total_yes,
+                "total_no": total_no,
+                "yes_percentage": (total_yes / (total_yes + total_no) * 100) if (total_yes + total_no) > 0 else 0
+            },
+            "proposals_detail": proposals_list
+        }
+
+        review_file = self._data_dir / ".round_review.json"
+        review_file.write_text(json.dumps(review_data, indent=2))
+
     async def _publish_triad_recommendations(self, round_num: int) -> None:
         """Publish Triad voting recommendations and deliberations for Residents to read.
 
@@ -1011,6 +1072,22 @@ class Simulation:
 
         # Write state to file for external monitoring
         review_file = self._data_dir / ".round_review.json"
+
+        # Build proposals list with details
+        proposals_list = []
+        for p in round_proposals:
+            yes_votes = sum(1 for v in p.votes.values() if v)
+            no_votes = sum(1 for v in p.votes.values() if not v)
+            proposals_list.append({
+                "id": p.id[:8],
+                "action": p.action.value if hasattr(p.action, 'value') else str(p.action),
+                "text": p.tenet_text[:80] + "..." if len(p.tenet_text) > 80 else p.tenet_text,
+                "targets": len(p.target_ids) if p.target_ids else 0,
+                "yes": yes_votes,
+                "no": no_votes,
+                "status": p.status.value if hasattr(p.status, 'value') else str(p.status)
+            })
+
         review_data = {
             "round": round_num,
             "stats": stats,
@@ -1024,6 +1101,7 @@ class Simulation:
                 "total_no": total_no,
                 "yes_percentage": (total_yes / (total_yes + total_no) * 100) if (total_yes + total_no) > 0 else 0
             },
+            "proposals_detail": proposals_list,
             "waiting_for_input": True
         }
         review_file.write_text(json.dumps(review_data, indent=2))

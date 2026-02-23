@@ -1,67 +1,89 @@
 """
 Next Session Cheat Sheet (Ralph Wiggum Style)
 
-Read VOTING_FIX.md for context. Phase 1-6 complete.
+Read SESSION_HANDOFF.md for full context. Phase 1-6 complete.
 
-Task: Phase 7 - Redis backend for agent memory (DISTRIBUTED_ARCHITECTURE.md)
+THE GREAT CONSOLIDATION CONTINUES!
+- Started: 905 tenets
+- Current: 880 tenets (25 consolidated!)
+- Agents: 258 (with persistent memory!)
+- Dashboard: NOW WITH LIVE PROPOSALS!
 
-=== PHASE 6 COMPLETE ===
+=== THIS SESSION ACCOMPLISHED ===
 
-Individual agent memory NOW PERSISTS across sessions:
-- data/agent_memories.json stores lifetime_memory and voting_history
-- AgentMemoryStore class in pureswarm/memory.py
-- Simulation loads memory on agent creation
-- Simulation saves memory at end of each round
+1. Fixed prophecy signature warnings
+   - Re-signed data/.prophecy with SOVEREIGN_KEY_FALLBACK
+   - No more "Invalid Prophecy Signature" spam
 
-Structure:
-{
-    "agent_id_1": {
-        "lifetime_memory": ["obs1", "obs2", ...],
-        "voting_history": [VoteRecord, VoteRecord, ...],
-        "last_active": "2024-01-01T00:00:00Z"
-    },
-    ...
-}
+2. Enhanced Dashboard with NEW PANELS:
+   - CONSOLIDATION TALLY: Shows 905 -> current -> 200 goal
+   - VOTE TALLY: YES/NO counts, adopted/rejected/pending
+   - ACTIVE PROPOSALS: Live FUSE proposals with vote counts!
+   - Fixed terminal compatibility (screen=False for antigravity)
 
-=== WHAT WORKS NOW ===
+3. Added _write_round_review() to simulation.py
+   - Writes proposals_detail to .round_review.json after EVERY round
+   - Dashboard reads this for live proposal display
 
-- Triad votes first, residents follow
-- Vote outcomes saved to agent memory (NOW PERSISTED!)
-- +0.4 bonus when Triad says "approve"
-- -0.3 penalty when Triad says "reject"
-- Triad explains their votes (deliberation reasoning)
-- Residents see why Triad voted that way
-- Agents remember their past across simulation restarts
+=== DASHBOARD PANELS ===
 
-=== KEY FILES MODIFIED (Phase 6) ===
+Left side (main):
+- NEURAL HIVE TOPOLOGY: 258 agents visualized
+- ACTIVE PROPOSALS: FUSE proposals with Y/N votes
+- ACTIVE UPLINK: Audit log ticker
 
-pureswarm/memory.py     - Added AgentMemoryStore class (lines 437-543)
-pureswarm/agent.py      - Added initial_memory param, get_memory_snapshot()
-pureswarm/simulation.py - Loads memory on agent creation, saves each round
+Right side:
+- MISSION VITALS: Population, tenet count, heartbeat
+- CONSOLIDATION TALLY: Progress to 200 tenets
+- VOTE TALLY: YES/NO breakdown
+- SQUAD ARENA: Leaderboard
 
-=== NEXT PHASE: REDIS BACKEND ===
+=== RUN COMMANDS ===
 
-docs/archive/DISTRIBUTED_ARCHITECTURE.md line 121:
-    memory:{agent_id}  HASH  Agent-specific knowledge
+Dashboard (Windows PowerShell - NOT antigravity terminal!):
+    $env:EMERGENCY_MODE="TRUE"; python -m pureswarm.dashboard
 
-Redis schema already designed! Implementation path:
-1. File-based done (data/agent_memories.json) [COMPLETE]
-2. Redis backend (memory:{agent_id} HASH) [NEXT]
+Simulation (any terminal):
+    set EMERGENCY_MODE=TRUE && python run_simulation.py --emergency --num_rounds 1
 
-Pattern to follow:
-- See RedisMemory class in memory.py for tenet storage
-- AgentMemoryStore needs similar async Redis methods
-- Config toggle: memory.backend = "file" | "redis"
+=== CURRENT STATS ===
+
+Tenets: 880 (down from 905)
+Agents: 258 with persistent memory
+Round: 1 of this session (4 total consolidation rounds)
+Last Vote: 1238 YES / 7 NO (99.4% approval!)
+Proposals: 9 FUSE pending (one targets 44 tenets!)
+Momentum: 2.00 (maximum!)
+
+=== KNOWN ISSUES ===
+
+1. Dashboard doesn't work in "antigravity terminal"
+   - Use Windows PowerShell directly
+   - Works fine there with screen=False
+
+2. Proposals need multiple rounds to accumulate votes
+   - 50% threshold required for adoption
+   - Keep running rounds!
+
+=== NEXT SESSION OPTIONS ===
+
+1. Continue consolidation: --emergency --num_rounds 10
+2. Phase 7: Redis backend for agent memory
+3. Watch dashboard while running rounds!
+
+=== KEY FILES MODIFIED ===
+
+pureswarm/simulation.py  - Added _write_round_review() for dashboard
+pureswarm/dashboard.py   - New panels: tally, votes, proposals
+data/.prophecy           - Re-signed with correct key
+data/.round_review.json  - Live proposal data for dashboard
 
 === GIT STATUS ===
 
-Phase 6 changes ready to commit:
-- pureswarm/memory.py (AgentMemoryStore)
-- pureswarm/agent.py (initial_memory, get_memory_snapshot)
-- pureswarm/simulation.py (load/save wiring)
-- tests/test_memory.py (fixed imports, updated reset test)
+4 commits ahead of origin (Phases 4-6 + dashboard fix)
++ This session's dashboard enhancements (uncommitted)
 
-"I'm helping!" - Ralph Wiggum, signing off.
+"I'm learnding!" - Ralph Wiggum, watching the dashboard
 
 ---
 
