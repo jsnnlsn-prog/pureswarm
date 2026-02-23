@@ -288,6 +288,7 @@ class VotingContext(BaseModel):
     # Squad context - Triad findings and recommendations
     squad_id: str | None = None
     triad_recommendations: dict[str, str] = Field(default_factory=dict)  # proposal_id -> "approve"/"reject"
+    triad_deliberations: dict[str, str] = Field(default_factory=dict)  # proposal_id -> reasoning text (Phase 5)
     squad_momentum: float = 0.0  # Current squad competition score context
 
 

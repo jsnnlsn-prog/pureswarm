@@ -1,23 +1,29 @@
-# Session Handoff: Triad Recommendation System
+# Session Handoff: Team Communication Complete
 
 **Date:** 2026-02-22
-**Status:** Phase 4 COMPLETE - Triad leadership guides resident voting
+**Status:** Phase 5 COMPLETE - Triad explains their votes, Residents see reasoning
 
 ---
 
 ## TL;DR
 
-Agents vote with full context: chronicle history, personal memory, voting records, AND Triad recommendations. **The feedback loop is complete.** Triad members vote first, their recommendations are published, and Residents receive +0.4 weight guidance from their squad's Triad.
+Agents vote with full context: chronicle history, personal memory, voting records, Triad recommendations, AND Triad reasoning. **Team communication is live.** Triad explains their votes, reasoning is published to `.squad_deliberations.json`, and Residents can see WHY Triad voted that way.
 
 **Next Session Prompt:**
 ```
-Read VOTING_FIX.md for context. Phase 1-4 are complete. Continue with Phase 5: Team communication (Triad deliberation before voting).
+Read VOTING_FIX.md and ralph_wiggums.py for context. Phase 1-5 complete.
 
-Key features working:
-- Vote outcomes recorded to agent history (feedback loop)
-- Triad votes first, publishes recommendations to .triad_recommendations.json
-- Residents read per-proposal recommendations for their squad
-- +0.4 weight for Triad "approve", -0.3 for "reject"
+Task: Phase 6 - Persistent memory across sessions
+
+THE GAP: Individual agent memory (_lifetime_memory, _voting_history) is lost when simulation ends.
+Shared memory (tenets, chronicle, fitness) already persists.
+
+Research findings:
+- memory.py already has Redis backend for distributed deployment
+- DISTRIBUTED_ARCHITECTURE.md defines memory:{agent_id} HASH for per-agent storage
+- Option B recommended: single file data/agent_memories.json
+
+Key files: pureswarm/agent.py, pureswarm/memory.py, docs/archive/DISTRIBUTED_ARCHITECTURE.md
 ```
 
 ---
@@ -30,8 +36,44 @@ Key features working:
 | 2 | Load real identity with specialization | DONE |
 | 3 | Pass voting context to agents | DONE |
 | 4 | Triad recommendation system (+0.4 weight) | DONE |
-| 5 | Team communication (Triad deliberation) | NEXT |
-| 6 | Persistent memory across sessions | FUTURE |
+| 5 | Team communication (Triad deliberation) | DONE |
+| 6 | Persistent memory across sessions | NEXT |
+
+---
+
+## What Changed (Session 4 - Phase 5)
+
+### Strategy Interface Updated (base.py)
+
+`evaluate_proposal()` now returns `tuple[bool, str | None]` instead of just `bool`:
+- First element: vote (True=YES, False=NO)
+- Second element: reasoning explanation (or None)
+
+### LLM Captures Reasoning (llm_driven.py)
+
+Prompts updated to ask for reasoning:
+```
+Respond with "YES" or "NO" followed by a brief reason (1-2 sentences).
+Format: [YES/NO]: Your reasoning here
+```
+
+Parses response to extract reasoning after YES/NO.
+
+### Agent Stores Reasoning (agent.py)
+
+- Added `_deliberation_reasoning: dict[str, str]` - maps proposal_id -> reasoning
+- Added `get_deliberation_reasoning()` method to retrieve and clear
+
+### Deliberations Published (simulation.py)
+
+Extended `_publish_triad_recommendations()` to also publish deliberations:
+- Writes `.squad_deliberations.json` with Triad reasoning per proposal per squad
+
+### Residents See Reasoning (models.py, agent.py, rule_based.py)
+
+- VotingContext has new `triad_deliberations: dict[str, str]` field
+- `_build_voting_context()` reads from `.squad_deliberations.json`
+- RuleBasedStrategy Section 8.6 logs when agents receive Triad reasoning
 
 ---
 

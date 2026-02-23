@@ -6,8 +6,37 @@
 - [x] Phase 2: Load real identity (COMPLETE - 2026-02-22)
 - [x] Phase 3: Pass voting context (COMPLETE - 2026-02-22)
 - [x] Phase 4: Triad recommendation system (COMPLETE - 2026-02-22)
-- [ ] Phase 5: Team communication (FUTURE SESSION)
+- [x] Phase 5: Team communication (COMPLETE - 2026-02-22)
 - [ ] Phase 6: Persistent memory (FUTURE SESSION)
+
+### What Changed (Session 4 - Phase 5)
+
+**strategies/base.py:**
+- Changed `evaluate_proposal()` return type from `bool` to `tuple[bool, str | None]`
+- Now returns (vote, reasoning) for team deliberation
+
+**strategies/llm_driven.py:**
+- Updated prompt format: "Respond with YES or NO followed by brief reason"
+- Parses reasoning from LLM response after YES/NO
+- Returns (vote, reasoning) tuple
+
+**strategies/rule_based.py:**
+- Updated signature to match new interface
+- Returns (vote, None) - no reasoning for deterministic strategy
+- Added Section 8.6: TRIAD DELIBERATION logging
+
+**agent.py:**
+- Added `_deliberation_reasoning: dict[str, str]` to store reasoning per proposal
+- Updated voting loop to unpack (vote, reasoning) tuple
+- Added `get_deliberation_reasoning()` method to retrieve and clear reasoning
+
+**simulation.py:**
+- Extended `_publish_triad_recommendations()` to also publish deliberations
+- Writes `.squad_deliberations.json` with Triad reasoning per proposal per squad
+
+**models.py:**
+- Added `triad_deliberations: dict[str, str]` to VotingContext
+- Maps proposal_id -> reasoning text for Phase 5 team communication
 
 ### What Changed (Session 3 - Phase 4)
 

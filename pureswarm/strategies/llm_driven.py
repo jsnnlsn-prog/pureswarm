@@ -182,11 +182,14 @@ Proposed Tenet:"""
         squad_id: str | None = None,
         specialization: str | None = None,
         voting_context: Opt[VotingContext] = None,
-    ) -> bool:
+    ) -> tuple[bool, str | None]:
         """Use LLM to evaluate if a proposal strengthens the collective.
 
         Triad and Researchers use this for nuanced evaluation.
         Now with historical context for informed decision-making.
+
+        Returns:
+            Tuple of (vote, reasoning) for Phase 5 deliberation.
         """
         from ..models import ProposalAction
 
@@ -253,9 +256,11 @@ CRITERIA FOR CONSOLIDATION:
 4. Does this affect your area of expertise? If so, evaluate more carefully.
 5. Consider your voting history - maintain consistency with your past decisions.
 
-Respond ONLY with "YES" to approve or "NO" to reject.
+Respond with "YES" or "NO" followed by a brief reason (1-2 sentences).
 
-Decision (YES/NO):"""
+Format: [YES/NO]: Your reasoning here
+
+Decision:"""
         else:
             # Regular ADD proposal evaluation
             sample_context = random.sample(existing_tenets, min(len(existing_tenets), 20)) if existing_tenets else []
@@ -282,21 +287,41 @@ CRITERIA:
 3. Is it relevant to your expertise ({specialization or 'general'})?
 4. Consider community events and your past observations.
 
-Respond ONLY with "YES" to approve or "NO" to reject. Give a one-sentence reason.
+Respond with "YES" or "NO" followed by a brief reason (1-2 sentences).
 
-Decision (YES/NO):"""
+Format: [YES/NO]: Your reasoning here
+
+Decision:"""
 
         try:
             result = await self._venice.complete(prompt, temperature=0.3)
-                
+
             if not result:
-                return False
-                
-            return "YES" in result.upper()
-            
+                return (False, None)
+
+            # Parse vote and reasoning from response
+            # Expected format: "YES: reasoning" or "NO: reasoning"
+            vote = "YES" in result.upper()
+            reasoning = None
+
+            # Try to extract reasoning after YES/NO
+            result_clean = result.strip()
+            for prefix in ["YES:", "NO:", "YES.", "NO.", "YES -", "NO -"]:
+                if result_clean.upper().startswith(prefix.upper()):
+                    reasoning = result_clean[len(prefix):].strip()
+                    break
+
+            # Fallback: take everything after the first word if no colon format
+            if reasoning is None and len(result_clean) > 4:
+                parts = result_clean.split(None, 1)
+                if len(parts) > 1:
+                    reasoning = parts[1].strip()
+
+            return (vote, reasoning)
+
         except Exception as e:
             logger.error("LLM Evaluation Failed: %s", e)
-            return False
+            return (False, None)
 
     async def evaluate_query(
         self,

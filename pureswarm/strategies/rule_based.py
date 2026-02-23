@@ -328,13 +328,18 @@ class RuleBasedStrategy(BaseStrategy):
         squad_id: str | None = None,
         specialization: str | None = None,
         voting_context: Optional[VotingContext] = None,
-    ) -> bool:
+    ) -> tuple[bool, str | None]:
         """Evaluate proposal based on agent's identity, expertise, values, and history.
 
         NO AUTO-YES: Every agent evaluates based on their unique perspective.
         Now with historical context for informed decision-making.
+
+        Returns:
+            Tuple of (vote, reasoning) for Phase 5 deliberation.
+            Rule-based strategy returns None for reasoning (no LLM explanation).
         """
         score = 0.0
+        score_reasons: list[str] = []  # Track factors for optional reasoning
 
         # Determine agent's specialty - use passed-in value OR fallback to hash
         if specialization and specialization in TECH_SPECIALTIES:
@@ -484,6 +489,13 @@ class RuleBasedStrategy(BaseStrategy):
                     score -= 0.3  # Triad rejection is significant but not absolute
                     logger.debug("Agent %s follows Triad recommendation: REJECT (-0.3)", agent_id)
 
+            # 8.6 TRIAD DELIBERATION - Phase 5: Residents see Triad reasoning
+            if voting_context.triad_deliberations:
+                triad_reasoning = voting_context.triad_deliberations.get(proposal.id)
+                if triad_reasoning:
+                    # Log that the agent received Triad's reasoning (team communication)
+                    logger.debug("Agent %s received Triad reasoning: '%s'", agent_id, triad_reasoning[:100])
+
         # Threshold - agents with strong opinions vote accordingly
         threshold = 0.25  # Higher than before - no more rubber-stamping
 
@@ -492,7 +504,8 @@ class RuleBasedStrategy(BaseStrategy):
         logger.debug("Agent %s (%s) votes %s on proposal %s (score=%.2f, %s)",
                     agent_id, my_specialty, "YES" if vote else "NO", proposal.id[:8], score, context_info)
 
-        return vote
+        # Rule-based strategy returns None for reasoning (no LLM to explain)
+        return (vote, None)
 
     async def evaluate_query(
         self,

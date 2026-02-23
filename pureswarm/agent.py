@@ -83,6 +83,7 @@ class Agent:
         self._round_observations: list[str] = []
         self._lifetime_memory: list[str] = []
         self._voting_history: list[VoteRecord] = []  # Track past voting decisions
+        self._deliberation_reasoning: dict[str, str] = {}  # Phase 5: proposal_id -> reasoning
 
     @property
     def id(self) -> str:
@@ -95,6 +96,15 @@ class Agent:
     @property
     def role(self) -> AgentRole:
         return self.identity.role
+
+    def get_deliberation_reasoning(self) -> dict[str, str]:
+        """Return and clear the agent's deliberation reasoning (Phase 5).
+
+        Called by simulation after Triad voting to collect explanations.
+        """
+        reasoning = self._deliberation_reasoning.copy()
+        self._deliberation_reasoning.clear()
+        return reasoning
 
     # ------------------------------------------------------------------
     # Main loop (called once per simulation round)
@@ -201,7 +211,7 @@ class Agent:
             # All agents evaluate proposals through their strategy - no auto-YES
             # Residents use RuleBasedStrategy, Triad/Researchers use LLMDrivenStrategy
             # Now with voting context for informed decision-making
-            vote = await self._strategy.evaluate_proposal(
+            vote, reasoning = await self._strategy.evaluate_proposal(
                 self.id, proposal, tenets, self._seed_prompt,
                 role=self.identity.role,
                 prophecy=prophecy_text,
@@ -209,6 +219,11 @@ class Agent:
                 specialization=self.identity.specialization,
                 voting_context=voting_context,
             )
+
+            # Phase 5: Store deliberation reasoning (Triad explains their vote)
+            if reasoning:
+                self._deliberation_reasoning[proposal.id] = reasoning
+
             accepted = self._consensus.cast_vote(self.id, proposal.id, vote)
             if accepted:
                 votes_this_round += 1
@@ -386,10 +401,14 @@ class Agent:
         squad_momentum = self.momentum
 
         # Read Triad recommendations (Phase 4: +0.4 weight for Triad guidance)
+        # Read Triad deliberations (Phase 5: reasoning explanations for informed voting)
         triad_recommendations: dict[str, str] = {}
+        triad_deliberations: dict[str, str] = {}
         if self.squad_id and self.identity.role != AgentRole.TRIAD_MEMBER:
-            # Residents read Triad recommendations for their squad
+            # Residents read Triad recommendations and deliberations for their squad
             import json
+
+            # Phase 4: Recommendations
             recs_file = Path("data/.triad_recommendations.json")
             if recs_file.exists():
                 try:
@@ -404,6 +423,21 @@ class Agent:
                 except Exception as e:
                     logger.debug("Agent %s failed to read Triad recommendations: %s", self.id, e)
 
+            # Phase 5: Deliberations (reasoning from Triad)
+            delib_file = Path("data/.squad_deliberations.json")
+            if delib_file.exists():
+                try:
+                    delib_data = json.loads(delib_file.read_text())
+                    deliberations = delib_data.get("deliberations", {})
+                    # Build per-proposal deliberations for our squad
+                    for proposal_id, squad_delibs in deliberations.items():
+                        if self.squad_id in squad_delibs:
+                            triad_deliberations[proposal_id] = squad_delibs[self.squad_id]
+                    if triad_deliberations:
+                        logger.debug("Agent %s received %d Triad deliberations", self.id, len(triad_deliberations))
+                except Exception as e:
+                    logger.debug("Agent %s failed to read Triad deliberations: %s", self.id, e)
+
         return VotingContext(
             recent_events=recent_events,
             milestones=milestones,
@@ -412,6 +446,7 @@ class Agent:
             squad_id=self.squad_id,
             squad_momentum=squad_momentum,
             triad_recommendations=triad_recommendations,
+            triad_deliberations=triad_deliberations,
         )
 
     def _record_vote_outcome(

@@ -36,8 +36,8 @@ class BaseStrategy(ABC):
         squad_id: str | None = None,
         specialization: str | None = None,
         voting_context: Optional[VotingContext] = None,
-    ) -> bool:
-        """Return True to vote YES, False to vote NO.
+    ) -> tuple[bool, str | None]:
+        """Return (vote, reasoning) - True to vote YES, False to vote NO.
 
         Args:
             agent_id: The voting agent's ID
@@ -49,6 +49,11 @@ class BaseStrategy(ABC):
             squad_id: Agent's squad (Alpha, Beta, Gamma)
             specialization: Agent's area of expertise
             voting_context: Historical context (chronicle, memory, voting record)
+
+        Returns:
+            Tuple of (vote: bool, reasoning: str | None)
+            - vote: True = YES, False = NO
+            - reasoning: Explanation for the vote (Phase 5 deliberation)
         """
 
     @abstractmethod

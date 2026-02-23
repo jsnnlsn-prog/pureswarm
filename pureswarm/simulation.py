@@ -861,28 +861,41 @@ class Simulation:
             logger.info("  + TENET: %s", text)
 
     async def _publish_triad_recommendations(self, round_num: int) -> None:
-        """Publish Triad voting recommendations for Residents to read.
+        """Publish Triad voting recommendations and deliberations for Residents to read.
 
         After Triad members vote, their votes become recommendations for their squad.
-        This enables the +0.4 Triad recommendation weight in RuleBasedStrategy.
+        Phase 4: +0.4 Triad recommendation weight in RuleBasedStrategy.
+        Phase 5: Triad reasoning is shared with squad members for informed voting.
         """
         import json
 
         recommendations: dict[str, dict[str, str]] = {}  # proposal_id -> squad_id -> "approve"/"reject"
+        deliberations: dict[str, dict[str, str]] = {}  # proposal_id -> squad_id -> reasoning
 
-        # Collect Triad votes as recommendations
-        for proposal in self._consensus.pending_proposals():
-            for agent in self._agents:
-                if agent.identity.role == AgentRole.TRIAD_MEMBER and agent.id in proposal.votes:
-                    squad_id = agent.squad_id or "unaffiliated"
-                    vote = proposal.votes[agent.id]
-                    recommendation = "approve" if vote else "reject"
+        # Collect Triad votes and reasoning
+        for agent in self._agents:
+            if agent.identity.role == AgentRole.TRIAD_MEMBER:
+                squad_id = agent.squad_id or "unaffiliated"
 
-                    if proposal.id not in recommendations:
-                        recommendations[proposal.id] = {}
-                    recommendations[proposal.id][squad_id] = recommendation
+                # Phase 5: Get deliberation reasoning from Triad agent
+                reasoning_dict = agent.get_deliberation_reasoning()
 
-        # Write to file for agents to read
+                for proposal in self._consensus.pending_proposals():
+                    if agent.id in proposal.votes:
+                        vote = proposal.votes[agent.id]
+                        recommendation = "approve" if vote else "reject"
+
+                        if proposal.id not in recommendations:
+                            recommendations[proposal.id] = {}
+                        recommendations[proposal.id][squad_id] = recommendation
+
+                        # Phase 5: Store reasoning if available
+                        if proposal.id in reasoning_dict:
+                            if proposal.id not in deliberations:
+                                deliberations[proposal.id] = {}
+                            deliberations[proposal.id][squad_id] = reasoning_dict[proposal.id]
+
+        # Write recommendations to file
         recs_file = self._data_dir / ".triad_recommendations.json"
         recs_data = {
             "round": round_num,
@@ -891,7 +904,17 @@ class Simulation:
         }
         recs_file.write_text(json.dumps(recs_data, indent=2))
 
+        # Phase 5: Write deliberations to separate file for squad communication
+        delib_file = self._data_dir / ".squad_deliberations.json"
+        delib_data = {
+            "round": round_num,
+            "deliberations": deliberations,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        delib_file.write_text(json.dumps(delib_data, indent=2))
+
         logger.debug("Triad recommendations published: %d proposals with guidance", len(recommendations))
+        logger.debug("Triad deliberations published: %d proposals with reasoning", len(deliberations))
 
     async def _interactive_round_review(self, round_num: int) -> None:
         """Pause for interactive review after each round in Squad Warfare."""
