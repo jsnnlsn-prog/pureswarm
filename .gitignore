@@ -18,6 +18,23 @@ data/archive/*
 !data/archive/.gitkeep
 data/logs/*
 !data/logs/.gitkeep
+data/http_logs/
+
+# Runtime state files (regenerated each run)
+data/.current_cluster.json
+data/.prompt_economy.json
+data/.round_review.json
+data/.squad_competition.json
+data/.squad_competition_state.json
+data/.squad_deliberations.json
+data/.tenet_clusters.json
+data/.triad_recommendations.json
+
+# Execution artifacts
+execution/
+
+# Windows null device artifact
+nul
 
 # PureSwarm Artifacts
 .heartbeat
