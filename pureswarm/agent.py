@@ -342,9 +342,9 @@ class Agent:
                             except Exception as e:
                                 logger.error("Failed to parse DELETE proposal: %s", e)
 
-                    # NO_NEW_TENETS mode: only allow FUSE and DELETE, never ADD
-                    if action == ProposalAction.ADD and os.getenv("NO_NEW_TENETS") == "TRUE":
-                        logger.debug("Agent %s skipping ADD proposal (NO_NEW_TENETS mode)", self.id)
+                    # NO_NEW_TENETS mode: tenets are LOCKED — block ALL proposals (ADD, FUSE, DELETE)
+                    if os.getenv("NO_NEW_TENETS") == "TRUE":
+                        logger.debug("Agent %s skipping %s proposal (tenets locked)", self.id, action.value)
                     else:
                         proposal = Proposal(
                             tenet_text=tenet_text,
