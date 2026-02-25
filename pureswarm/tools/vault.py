@@ -99,7 +99,7 @@ class SovereignVault:
             for name, cred_data in data.items():
                 self._credentials[name] = Credential(**cred_data)
 
-            logger.info("Vault loaded: %d credentials", len(self._credentials))
+            logger.debug("Vault loaded: %d credentials", len(self._credentials))
         except Exception as e:
             logger.error("Failed to load vault: %s", e)
 

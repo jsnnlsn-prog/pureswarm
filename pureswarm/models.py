@@ -35,6 +35,8 @@ class MessageType(str, Enum):
     REFLECTION = "reflection"
     REWARD = "reward"
     DOPAMINE = "dopamine"
+    PROMPT_GIFT = "prompt_gift"    # true transfer — sender loses tokens
+    PROMPT_TRADE = "prompt_trade"  # peer-to-peer swap, any squad
 
 
 class ProposalStatus(str, Enum):

@@ -137,7 +137,9 @@ class HiveHUD:
                     # Parse ISO format timestamp
                     last_dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
                     now = datetime.now(last_dt.tzinfo) if last_dt.tzinfo else datetime.now()
-                    diff = abs((now - last_dt.replace(tzinfo=None)).total_seconds())
+                    
+                    # Calculate diff correctly handling aware datetimes
+                    diff = abs((now - last_dt).total_seconds())
                     if diff < 30:
                         heartbeat_status = f"[bold green]R{round_num} SYNCED[/bold green]"
                     elif diff < 120:
@@ -160,7 +162,7 @@ class HiveHUD:
         if HAS_PLOTILLE and len(self.history) > 1:
             try:
                 spark = "\n" + plotille.hist(self.history, height=5, width=30)
-            except:
+            except Exception:
                 spark = "\n[red]Sparkline Error[/red]"
         
         content = Group(
@@ -226,7 +228,7 @@ class HiveHUD:
                         str(squad.get("delete_adopted", 0)),
                         str(squad.get("round_wins", 0))
                     )
-            except:
+            except Exception:
                 table.add_row("", "Awaiting first round...", "", "", "", "")
         else:
             table.add_row("", "[dim]Competition not started[/dim]", "", "", "", "")

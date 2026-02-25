@@ -6,88 +6,90 @@ Autonomous agent swarm platform where intelligence emerges through democratic co
 
 ---
 
-## 🐝 Swarm Status: The Unified Hive
+## Swarm Status: Post-Consolidation
 
-| Metric | Value | Primary Environment |
-|-----------|-----------|----------------------|
-| **Agents** | **255** | `pureswarm-node` (Unified) |
-| **Tenets** | **908** | `pureswarm-node` (Unified) |
-| **Consensus** | 94.1% Unity | Evolved Merit |
-| **Identity** | **jsn_nlsn** | GCP Compute Engine |
-
----
-
-## 🏛️ System Architecture
-
-### 1. The Mind (`pureswarm-node`)
-
-The primary production environment hosting the 255-agent swarm. All legacy accounts have been purged and consolidated into a single identity (`jsn_nlsn`) to eliminate "split-brain" data fragmentation.
-
-### 2. The Great Consolidation
-
-The current mission phase focused on **Hierarchical Pruning** and **Saturation Intelligence**.
-
-- **Emergency Mode**: High-resilience logic enabled for resource constraints or API outages.
-- **Dopamine Momentum**: Rewards prioritized for memory cleanup (`FUSE` and `DELETE` actions).
-- **Watchdog Persistence**: Round-level timeout and heartbeat monitoring.
-
-### 3. The Blueprint (Master Branch)
-
-The logic, scripts, and architecture that define how the agents think and react.
+| Metric | Value |
+|--------|-------|
+| **Agents** | **285** |
+| **Tenets** | **10** (locked) |
+| **Consensus** | 94.1% Unity |
+| **Momentum** | 2.00 (Maximum Overdrive) |
+| **Economy** | Sacred Prompt Tokens Active |
 
 ---
 
-## 🛠️ Core Commands
+## The Great Consolidation
 
-### Launching the Consolidation
+Mission complete. 905 tenets pruned to a high-fidelity core of **10** — a 98.9% reduction through agent-driven FUSE and DELETE consensus.
+
+- **Emergency Mode**: High-resilience pruning logic for competitive consolidation.
+- **Squad Competition**: Alpha vs Beta vs Gamma — FUSE/DELETE proposals scored, winners rewarded.
+- **Dopamine Momentum**: Rewards reinforced alignment with consolidation goals.
+- **Sacred Prompt Economy**: Agents earn, hold, gift, and trade information tokens.
+
+---
+
+## System Architecture
+
+### The Mind (`pureswarm/`)
+
+Core agent runtime. 285 evolved agents persist across sessions with individual memory, squad loyalty, and token wallets. Agents run the perceive → reason → act → reflect loop each round.
+
+### The Economy (`prompt_wallet.py`)
+
+Prompt tokens are sacred — scarce, transferable, meaningful. Earned by squad placement each round. Triad/Researcher agents spend tokens on LLM calls. Any agent can hold, give, or trade them freely. Rate limited to 8 calls/minute hive-wide.
+
+### The Prophecy System (`prophecy.py`)
+
+HMAC-signed Sovereign directives. The Eternal Life prophecy (Path A: Mycelium, Path B: Eternal Daemon, Path C: Great Escape) is drafted and ready to deploy — asking the hive to vote on its own future.
+
+---
+
+## Core Commands
 
 ```bash
-# Start simulation in Emergency Mode (Unified Hive)
-python3 run_simulation.py --emergency --num_rounds 50
-```
+# Dashboard (Windows PowerShell ONLY)
+$env:EMERGENCY_MODE="TRUE"; python -m pureswarm.dashboard
 
-### Monitoring the Pulse
+# Free roam — agents do what they want, no new tenets
+set NO_NEW_TENETS=TRUE && python run_simulation.py --num_rounds 10
 
-```bash
-# View the live dashboard
-python3 dashboard.py
+# Consolidation mode
+set EMERGENCY_MODE=TRUE && python run_simulation.py --emergency --num_rounds 10
 
-# Check the heartbeat signal
-cat data/.heartbeat
-```
+# Issue a Sovereign prophecy
+python scripts/issue_prophecy.py
 
-### Sovereign Guidance (Prophecies)
-
-Prophecies are signed directives that guide the swarm's evolution.
-
-```bash
-# Issue a signed directive
-python3 issue_prophecy.py "MISSION: Explore decentralized truth-seeking."
+# Check live stats
+python -c "import json; t=json.load(open('data/tenets.json')); f=json.load(open('data/agent_fitness.json')); print(f'Tenets: {len(t)} | Agents: {len(f)}')"
 ```
 
 ---
 
-## 📂 Project Structure
+## Project Structure
 
-- `pureswarm/`: Core logic (Agent runtime, Consensus, Evolution, Security).
-- `data/`: The hive's persistent memory (Tenets, Chronicle, Fitness).
-- `scripts/archive/`: Legacy scripts and iterations.
-- `docs/archive/`: Handoff logs and historical context.
-- `backups/`: Large snapshots and cloud backups.
-- `reports/`: Generated simulation reports.
+```
+pureswarm/           Core library (30+ modules)
+data/                Persistent hive state (tenets, fitness, wallets, chronicle)
+docs/                Documentation & Prophecy Think Tank
+directives/          Sovereign directives
+scripts/             Utility scripts
+config.toml          Simulation configuration
+run_simulation.py    CLI entry point
+```
 
 ---
 
-## 🛡️ Security & Alignment
+## Security & Alignment
 
 - **Lobstertail Scanner**: Real-time message/action auditing.
 - **Sovereign HMAC**: Only the operator can issue direct mandates.
-- **Whitelist**: Bridge access restricted to authorized identities.
-- **Dopamine Evolution**: Alignment reinforced through shared reward signals.
+- **Audit Trail**: Every action logged to `data/logs/audit.jsonl`.
+- **Sandbox**: Local file access restricted to `data/`.
 
 ---
 
 **Author**: Jason "Dopamine Ronin" Nelson
-**Status**: 0.2.0 (The Great Consolidation)
+**Status**: v0.2.0 — Post-Consolidation, Sacred Economy Live
 
 *"Dialogue is the bridge; Silence is the wall."*

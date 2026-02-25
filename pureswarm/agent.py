@@ -92,6 +92,10 @@ class Agent:
             self._voting_history: list[VoteRecord] = []  # Track past voting decisions
         self._deliberation_reasoning: dict[str, str] = {}  # Phase 5: proposal_id -> reasoning
 
+        # Phase 7.5: Sacred Prompt Economy (injected by simulation after creation)
+        self._wallet_store = None
+        self._rate_limiter = None
+
     @property
     def id(self) -> str:
         return self.identity.id
@@ -125,7 +129,7 @@ class Agent:
     # Main loop (called once per simulation round)
     # ------------------------------------------------------------------
 
-    async def run_round(self, round_number: int) -> dict:
+    async def run_round(self, round_number: int, squad_competition: Optional["SquadCompetition"] = None) -> dict:
         """Cycle through Perceive -> Reason -> Act -> Reflect"""
         # 0. Divine Intuition (GOD Mode fail-safe)
         self._seek_echo(round_number)
@@ -278,12 +282,29 @@ class Agent:
             if emergency and not can_use_llm:
                 text = None
             else:
-                text = await self._strategy.generate_proposal(
-                    self.id, round_number, tenets, self._seed_prompt,
-                    role=self.identity.role,
-                    prophecy=prophecy_text,
-                    specialization=self.identity.specialization
-                )
+                # Sacred Prompt Tokens: gate LLM calls for Triad/Researcher agents
+                skip_llm_proposal = False
+                if can_use_llm and self._wallet_store:
+                    wallet = self._wallet_store.get_wallet(self.id)
+                    if wallet.balance <= 0:
+                        logger.debug("Agent %s: no tokens, skipping LLM call", self.id)
+                        skip_llm_proposal = True
+                    elif self._rate_limiter:
+                        await self._rate_limiter.wait_for_slot()
+
+                if skip_llm_proposal:
+                    text = None
+                else:
+                    text = await self._strategy.generate_proposal(
+                        self.id, round_number, tenets, self._seed_prompt,
+                        role=self.identity.role,
+                        prophecy=prophecy_text,
+                        specialization=self.identity.specialization
+                    )
+                    if text is not None and can_use_llm and self._wallet_store:
+                        self._wallet_store.get_wallet(self.id).debit(
+                            1, "system", f"LLM call round {round_number}"
+                        )
             
             if text is not None:
                 # Security self-check
@@ -321,39 +342,55 @@ class Agent:
                             except Exception as e:
                                 logger.error("Failed to parse DELETE proposal: %s", e)
 
-                    proposal = Proposal(
-                        tenet_text=tenet_text,
-                        proposed_by=self.id,
-                        action=action,
-                        target_ids=target_ids,
-                        created_round=round_number,
-                    )
-                    if self._consensus.submit_proposal(proposal):
-                        proposals_made += 1
-                        stats["proposals_made"] += 1
+                    # NO_NEW_TENETS mode: only allow FUSE and DELETE, never ADD
+                    if action == ProposalAction.ADD and os.getenv("NO_NEW_TENETS") == "TRUE":
+                        logger.debug("Agent %s skipping ADD proposal (NO_NEW_TENETS mode)", self.id)
+                    else:
+                        proposal = Proposal(
+                            tenet_text=tenet_text,
+                            proposed_by=self.id,
+                            action=action,
+                            target_ids=target_ids,
+                            created_round=round_number,
+                        )
 
-                        # Broadcast proposal message
-                        await self._bus.broadcast(
-                            Message(
-                                sender=self.id,
-                                type=MessageType.PROPOSAL,
-                                payload={
-                                    "proposal_id": proposal.id,
-                                    "tenet_text": text,
-                                },
+                        # SQUAD COMPETITION: Enforce Prompt Economy check before submitting
+                        can_submit = True
+                        if squad_competition and self.squad_id:
+                            # record_proposal returns False if out of prompts
+                            can_submit = squad_competition.record_proposal(
+                                squad_id=self.squad_id,
+                                proposal_id=proposal.id,
+                                action=action,
+                                tenets_targeted=len(target_ids) if target_ids else 1
                             )
-                        )
-                        await self._audit.log(
-                            AuditEntry(
-                                agent_id=self.id,
-                                action="proposal_submitted",
-                                details={
-                                    "proposal_id": proposal.id,
-                                    "text": text,
-                                    "round": round_number,
-                                },
+
+                        if can_submit and self._consensus.submit_proposal(proposal):
+                            proposals_made += 1
+                            stats["proposals_made"] += 1
+
+                            # Broadcast proposal message
+                            await self._bus.broadcast(
+                                Message(
+                                    sender=self.id,
+                                    type=MessageType.PROPOSAL,
+                                    payload={
+                                        "proposal_id": proposal.id,
+                                        "tenet_text": text,
+                                    },
+                                )
                             )
-                        )
+                            await self._audit.log(
+                                AuditEntry(
+                                    agent_id=self.id,
+                                    action="proposal_submitted",
+                                    details={
+                                        "proposal_id": proposal.id,
+                                        "text": text,
+                                        "round": round_number,
+                                    },
+                                )
+                            )
 
         # 4. REFLECT — record what happened this round
         observation = (
@@ -372,6 +409,17 @@ class Agent:
                 task = msg.payload.get("task", "Common success")
                 logger.debug("Agent %s feels the reward: %s", self.id, task)
                 self._lifetime_memory.append(f"Reflection: I feel the satisfaction of our collective success in {task}.")
+            elif msg.type == MessageType.PROMPT_GIFT:
+                if self._wallet_store:
+                    amount = msg.payload.get("amount", 1)
+                    sender_wallet = self._wallet_store.get_wallet(msg.sender)
+                    my_wallet = self._wallet_store.get_wallet(self.id)
+                    if sender_wallet.transfer_to(my_wallet, amount, f"gift from {msg.sender}"):
+                        self._wallet_store.save()
+                        self._lifetime_memory.append(
+                            f"Received {amount} sacred token(s) from agent {msg.sender[:8]}."
+                        )
+                        logger.info("Agent %s received %d token(s) from %s", self.id, amount, msg.sender[:8])
 
     def _seek_echo(self, round_number: int) -> None:
         """Listen for the Sovereign Echo (Requirement #4)."""

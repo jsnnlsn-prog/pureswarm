@@ -30,6 +30,7 @@ from .workshop import WorkshopOrchestrator
 from .squad_competition import SquadCompetition
 from .tenet_clusterer import TenetClusterer
 from .prompt_economy import PromptEconomy
+from .prompt_wallet import PromptWalletStore, PromptRateLimiter
 
 logger = logging.getLogger("pureswarm.simulation")
 
@@ -254,6 +255,19 @@ class Simulation:
             num_rounds=num_rounds,
             seed_prompt=seed_prompt,
         )
+
+        # Phase 7.5: Sacred Prompt Economy — inject wallet store + rate limiter into all agents
+        self._wallet_store = PromptWalletStore(self._data_dir)
+        self._rate_limiter = PromptRateLimiter()
+        for agent in self._agents:
+            agent._wallet_store = self._wallet_store
+            agent._rate_limiter = self._rate_limiter
+        logger.info("Sacred Prompt Economy: wallets injected into %d agents", len(self._agents))
+
+        # Wire wallet store into squad competition so it can distribute placement rewards
+        if self._squad_competition:
+            self._squad_competition.set_wallet_store(self._wallet_store, self._agents)
+            logger.info("Sacred Prompt Economy: squad competition wired for placement rewards")
 
     def _load_evolved_agents(
         self,
@@ -646,7 +660,7 @@ class Simulation:
         # Step 1: Triad/Researchers deliberate first (parallel among themselves)
         if triad_agents:
             self._heartbeat(round_num, f"Triad deliberating ({len(triad_agents)} experts)")
-            triad_tasks = [agent.run_round(round_num) for agent in triad_agents]
+            triad_tasks = [agent.run_round(round_num, self._squad_competition) for agent in triad_agents]
             triad_results = await asyncio.gather(*triad_tasks)
             results.extend(triad_results)
 
@@ -659,7 +673,7 @@ class Simulation:
             rng.shuffle(resident_agents)  # Fairness among residents
 
             self._heartbeat(round_num, f"Residents voting ({len(resident_agents)} citizens)")
-            resident_tasks = [agent.run_round(round_num) for agent in resident_agents]
+            resident_tasks = [agent.run_round(round_num, self._squad_competition) for agent in resident_agents]
             resident_results = await asyncio.gather(*resident_tasks)
             results.extend(resident_results)
 

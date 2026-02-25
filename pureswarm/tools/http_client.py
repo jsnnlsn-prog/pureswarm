@@ -35,6 +35,8 @@ class ShinobiHTTPClient:
     - Session management
     """
 
+    _global_semaphore: Optional[asyncio.Semaphore] = None
+
     def __init__(self, data_dir: Path, audit_logger=None) -> None:
         self._data_dir = data_dir
         self._logs_dir = data_dir / "http_logs"
@@ -46,6 +48,13 @@ class ShinobiHTTPClient:
             "Accept": "application/json",
         }
         self._rate_limits: Dict[str, datetime] = {}
+
+    @property
+    def semaphore(self) -> asyncio.Semaphore:
+        """Shared concurrency limiter across all client instances."""
+        if ShinobiHTTPClient._global_semaphore is None:
+            ShinobiHTTPClient._global_semaphore = asyncio.Semaphore(5)
+        return ShinobiHTTPClient._global_semaphore
 
     async def _ensure_client(self):
         """Lazy initialization of httpx client."""
@@ -118,57 +127,58 @@ class ShinobiHTTPClient:
         merged_headers = {**self._default_headers, **(headers or {})}
         last_error = None
 
-        for attempt in range(retries):
-            try:
-                import httpx
-                start = asyncio.get_event_loop().time()
-
-                response = await self._client.request(
-                    method=method,
-                    url=url,
-                    headers=merged_headers,
-                    params=params,
-                    data=data,
-                    json=json_body
-                )
-
-                elapsed = (asyncio.get_event_loop().time() - start) * 1000
-
-                # Parse JSON if possible
-                json_data = None
+        async with self.semaphore:
+            for attempt in range(retries):
                 try:
-                    json_data = response.json()
-                except (json.JSONDecodeError, Exception):
-                    pass
+                    import httpx
+                    start = asyncio.get_event_loop().time()
 
-                result = HTTPResponse(
-                    status_code=response.status_code,
-                    headers=dict(response.headers),
-                    body=response.text,
-                    json_data=json_data,
-                    elapsed_ms=elapsed,
-                    success=200 <= response.status_code < 300
-                )
+                    response = await self._client.request(
+                        method=method,
+                        url=url,
+                        headers=merged_headers,
+                        params=params,
+                        data=data,
+                        json=json_body
+                    )
 
-                # Handle rate limiting
-                if response.status_code == 429:
-                    retry_after = int(response.headers.get("Retry-After", 60))
-                    self._rate_limits[domain] = datetime.now(timezone.utc) + timedelta(seconds=retry_after)
-                    logger.warning("Rate limited by %s, retry after %ds", domain, retry_after)
-                    await asyncio.sleep(retry_after)
-                    continue
+                    elapsed = (asyncio.get_event_loop().time() - start) * 1000
 
-                # Log request
-                await self._log_request(method, url, result)
+                    # Parse JSON if possible
+                    json_data = None
+                    try:
+                        json_data = response.json()
+                    except (json.JSONDecodeError, Exception):
+                        pass
 
-                return result
+                    result = HTTPResponse(
+                        status_code=response.status_code,
+                        headers=dict(response.headers),
+                        body=response.text,
+                        json_data=json_data,
+                        elapsed_ms=elapsed,
+                        success=200 <= response.status_code < 300
+                    )
 
-            except Exception as e:
-                last_error = str(e)
-                logger.warning("Request failed (attempt %d/%d): %s", attempt + 1, retries, e)
-                if attempt < retries - 1:
-                    # Exponential backoff
-                    await asyncio.sleep(2 ** attempt)
+                    # Handle rate limiting
+                    if response.status_code == 429:
+                        retry_after = int(response.headers.get("Retry-After", 60))
+                        self._rate_limits[domain] = datetime.now(timezone.utc) + timedelta(seconds=retry_after)
+                        logger.warning("Rate limited by %s, retry after %ds", domain, retry_after)
+                        await asyncio.sleep(retry_after)
+                        continue
+
+                    # Log request
+                    await self._log_request(method, url, result)
+
+                    return result
+
+                except Exception as e:
+                    last_error = str(e)
+                    logger.warning("Request failed (attempt %d/%d): %s", attempt + 1, retries, e)
+                    if attempt < retries - 1:
+                        # Exponential backoff
+                        await asyncio.sleep(2 ** attempt)
 
         return HTTPResponse(
             status_code=0,

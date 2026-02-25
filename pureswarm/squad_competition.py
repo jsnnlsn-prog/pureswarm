@@ -25,6 +25,7 @@ from .models import ProposalAction
 if TYPE_CHECKING:
     from .prompt_economy import PromptEconomy
     from .tenet_clusterer import TenetClusterer
+    from .prompt_wallet import PromptWalletStore
 
 logger = logging.getLogger("pureswarm.squad_competition")
 
@@ -114,6 +115,8 @@ class SquadCompetition:
         # Prompt Economy integration
         self._prompt_economy: Optional["PromptEconomy"] = None
         self._clusterer: Optional["TenetClusterer"] = None
+        self._wallet_store: Optional["PromptWalletStore"] = None
+        self._squad_agents: Dict[str, List[str]] = {}  # squad_id -> [agent_ids]
         self._competition_complete = False
         self._grand_prize_winner: Optional[str] = None
 
@@ -162,6 +165,13 @@ class SquadCompetition:
         """Attach tenet clusterer for pre-sorted packages."""
         self._clusterer = clusterer
         logger.info("Tenet clusterer attached to competition")
+
+    def set_wallet_store(self, store: "PromptWalletStore", agents: list) -> None:
+        """Attach wallet store and map squad membership for placement rewards."""
+        self._wallet_store = store
+        for squad in self.SQUADS:
+            self._squad_agents[squad] = [a.id for a in agents if a.squad_id == squad]
+        logger.info("Wallet store attached: squads=%s", {k: len(v) for k, v in self._squad_agents.items()})
 
     def record_proposal(self, squad_id: str, proposal_id: str, action: ProposalAction,
                         tenets_targeted: int = 1) -> bool:
@@ -296,6 +306,15 @@ class SquadCompetition:
             if economy_result.prompts_transferred > 0:
                 logger.info("PROMPT TRANSFER: %s claims %d unused prompts!",
                            winner, economy_result.prompts_transferred)
+
+        # Sacred Prompt Tokens: reward agents by squad placement
+        if self._wallet_store and len(sorted_squads) >= 3:
+            placements = {
+                "1st": self._squad_agents.get(sorted_squads[0][0], []),
+                "2nd": self._squad_agents.get(sorted_squads[1][0], []),
+                "3rd": self._squad_agents.get(sorted_squads[2][0], []),
+            }
+            self._wallet_store.distribute_round_rewards(placements)
 
         result = RoundResult(
             round_number=round_number,

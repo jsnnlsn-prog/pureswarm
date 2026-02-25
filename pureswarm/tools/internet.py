@@ -36,13 +36,14 @@ class TaskResult:
     data: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
 
-
 class InternetAccess:
     """Shinobi's hands in the digital world.
 
     This is the main interface agents use for all external operations.
     Only Triad members (Shinobi no San) can use these capabilities.
     """
+
+    _llm_logged = False
 
     def __init__(self, agent_id: str, is_triad: bool, data_dir: Path = None) -> None:
         self._agent_id = agent_id
@@ -62,12 +63,14 @@ class InternetAccess:
 
         if venice_client or anthropic_client:
             self._venice = FallbackLLMClient(venice_client, anthropic_client)
-            providers = []
-            if anthropic_client:
-                providers.append("Anthropic")
-            if venice_client:
-                providers.append("Venice")
-            logger.info("LLM fallback chain: %s", " -> ".join(providers))
+            if not InternetAccess._llm_logged:
+                providers = []
+                if anthropic_client:
+                    providers.append("Anthropic")
+                if venice_client:
+                    providers.append("Venice")
+                logger.info("LLM fallback chain initialized: %s", " -> ".join(providers))
+                InternetAccess._llm_logged = True
         else:
             self._venice = None
 
