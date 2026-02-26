@@ -269,6 +269,10 @@ class Simulation:
             self._squad_competition.set_wallet_store(self._wallet_store, self._agents)
             logger.info("Sacred Prompt Economy: squad competition wired for placement rewards")
 
+        # Phase 8: Wire wallet store into workshop orchestrator for participation rewards
+        self._workshop._wallet_store = self._wallet_store
+        logger.info("Sacred Prompt Economy: workshop orchestrator wired for participation rewards")
+
     def _load_evolved_agents(
         self,
         fitness_file: Path,

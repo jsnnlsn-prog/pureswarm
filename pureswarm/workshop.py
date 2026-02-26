@@ -4,6 +4,10 @@ The swarm develops expertise through collaborative workshops aligned with
 PureSwarm's core capabilities: threat detection, consensus defense, stealth
 operations, cryptography, evolution mechanics, and distributed architecture.
 
+Phase 8 adds the Tech Sector catalog: 9 real-world unsolved problems from
+the 2026 tech industry. Agents earn tokens for participation and breakthrough
+insights — "make it rain" for genuine discovery.
+
 Includes the voluntary Sovereign's Workshop for elite agents studying the
 Saturation Principle and GovTech Hunter methodology.
 """
@@ -11,7 +15,7 @@ Saturation Principle and GovTech Hunter methodology.
 import asyncio
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from .models import (
     ProblemDomain,
@@ -140,6 +144,215 @@ PROBLEM_CATALOG: list[WorkshopProblem] = [
 
 
 # ---------------------------------------------------------------------------
+# Phase 8: Tech Sector Catalog (9 Real-World Problems, 2026)
+# ---------------------------------------------------------------------------
+
+TECH_SECTOR_CATALOG: list[WorkshopProblem] = [
+    WorkshopProblem(
+        title="AI Hallucination & Alignment Trade-off",
+        description=(
+            "LLMs generate confidently false information at scale — and attempts to fix "
+            "hallucinations unintentionally weaken safety alignment, since both share "
+            "overlapping model components. Courts have sanctioned lawyers for fabricated "
+            "citations; healthcare systems face liability for made-up diagnoses. "
+            "As agents become more autonomous, the cost of hallucinations scales exponentially. "
+            "Solve: models that know when they don't know, with verifiable confidence scoring "
+            "and source tracing — without degrading safety."
+        ),
+        domain=ProblemDomain.TECH_SECTOR,
+        technical_dimensions=[
+            "uncertainty quantification", "confidence scoring", "source tracing",
+            "out-of-distribution detection", "retrieval-augmented generation"
+        ],
+        ethical_dimensions=[
+            "safety-accuracy balance", "liability for AI errors", "transparency of uncertainty"
+        ],
+        target_specialties=["ai_ml", "security", "backend"]
+    ),
+    WorkshopProblem(
+        title="Multi-Agent Coordination & Cascading Failures",
+        description=(
+            "When multiple AI agents collaborate, errors propagate rapidly without detection. "
+            "2026 is the Year of Multi-Agent Systems — enterprises deploy swarms for DevOps, "
+            "customer service, and financial analysis. Small inconsistencies cascade into "
+            "full system failures. There are no consensus primitives for heterogeneous agent "
+            "populations. The hive is working on this problem. The hive IS this problem. "
+            "Solve: self-healing agent networks, sub-second arbitration, cryptographic audit "
+            "trails, and Byzantine fault tolerance for real deployments."
+        ),
+        domain=ProblemDomain.TECH_SECTOR,
+        technical_dimensions=[
+            "self-healing", "byzantine fault tolerance", "consensus primitives",
+            "cryptographic proof", "audit trail", "observability"
+        ],
+        ethical_dimensions=[
+            "liability for cascading failures", "transparency of agent decisions",
+            "human oversight at scale"
+        ],
+        target_specialties=["distributed_systems", "ai_ml", "security", "backend"]
+    ),
+    WorkshopProblem(
+        title="Post-Quantum Cryptography Migration at Scale",
+        description=(
+            "NIST-approved PQC algorithms exist but 91.4% of top websites don't support them. "
+            "PQC keys are 3-4x larger, 12x slower on IoT devices, and most organizations "
+            "lack migration expertise. 'Harvest now, decrypt later' attacks are actively "
+            "underway — nation-states are recording encrypted traffic today to decrypt once "
+            "quantum computers arrive. Banking: 2.9% adoption. Healthcare: 8.5%. "
+            "Solve: crypto-agility frameworks, automated migration tooling, and performance "
+            "parity on constrained devices."
+        ),
+        domain=ProblemDomain.TECH_SECTOR,
+        technical_dimensions=[
+            "crypto-agility", "automated migration", "pqc performance parity",
+            "harvest now decrypt later", "key rotation", "HSM integration"
+        ],
+        ethical_dimensions=[
+            "national security implications", "critical infrastructure risk",
+            "equitable migration across organization sizes"
+        ],
+        target_specialties=["cryptography", "security", "devops", "backend"]
+    ),
+    WorkshopProblem(
+        title="AI-Powered Supply Chain Attack Detection",
+        description=(
+            "Attackers use AI to scan thousands of suppliers simultaneously, identify "
+            "vulnerabilities, and launch coordinated attacks. 'SockPuppet' attacks deploy "
+            "AI-generated developer personas with months of legitimate contributions before "
+            "injecting backdoors. Malicious packages jumped 156% YoY. Detection takes "
+            "276 days + 73 days to contain. A single compromise can affect millions downstream. "
+            "Solve: real-time behavioral baseline detection, cryptographic developer identity, "
+            "and automated quarantine before packages reach production."
+        ),
+        domain=ProblemDomain.TECH_SECTOR,
+        technical_dimensions=[
+            "behavioral baseline", "real-time anomaly detection", "identity verification",
+            "automated quarantine", "contributor fingerprinting"
+        ],
+        ethical_dimensions=[
+            "false positive rates in security tooling", "open-source ecosystem trust",
+            "privacy of developer activity patterns"
+        ],
+        target_specialties=["security", "ai_ml", "backend", "cryptography"]
+    ),
+    WorkshopProblem(
+        title="Data Sovereignty & Cross-Border Compliance Automation",
+        description=(
+            "120+ countries have data protection laws, 24 more in progress. GDPR fines hit "
+            "€2.3B in 2025 alone. 71% of organizations cite cross-border compliance as their "
+            "top challenge. China, India, UAE, Russia all mandate local data residency — "
+            "conflicting with cloud scalability. AI governance is merging with privacy law "
+            "creating a matrix of conflicting rules with no unified framework. "
+            "Solve: policy-as-code that auto-enforces jurisdiction rules, automated data "
+            "classification, and real-time compliance dashboards."
+        ),
+        domain=ProblemDomain.TECH_SECTOR,
+        technical_dimensions=[
+            "policy-as-code", "automated classification", "jurisdiction mapping",
+            "data residency enforcement", "multi-cloud compliance"
+        ],
+        ethical_dimensions=[
+            "privacy as a human right", "corporate vs. national sovereignty",
+            "equitable access to global cloud services"
+        ],
+        target_specialties=["backend", "distributed_systems", "devops", "security"]
+    ),
+    WorkshopProblem(
+        title="AI-Generated Code Security Debt",
+        description=(
+            "15-25% of AI-generated code contains security vulnerabilities. Developers ship "
+            "75% more code than in 2022. Fortune 50 companies saw a 10x increase in monthly "
+            "security findings between Dec 2024 and June 2025. Credential exposure occurs "
+            "2x more frequently with AI assistants. The code is 'highly functional but "
+            "systematically lacking architectural judgment.' Technical debt is reaching "
+            "critical severity for 75% of enterprises in 2026. "
+            "Solve: semantic analysis pre-merge, architectural validation, and controlled "
+            "generation that understands team constraints."
+        ),
+        domain=ProblemDomain.TECH_SECTOR,
+        technical_dimensions=[
+            "semantic analysis", "architectural validation", "controlled generation",
+            "supply chain verification", "vulnerability pattern detection"
+        ],
+        ethical_dimensions=[
+            "developer accountability for AI output", "security liability",
+            "sustainable development velocity"
+        ],
+        target_specialties=["security", "ai_ml", "devops", "backend"]
+    ),
+    WorkshopProblem(
+        title="Healthcare AI Adoption Blockers",
+        description=(
+            "77% of healthcare organizations cite immature AI tools as adoption barriers. "
+            "Regulatory frameworks can't handle continual-learning models — how do you approve "
+            "something that updates itself? Medicare won't separately reimburse AI interpretation "
+            "if bundled into a primary service. Legacy EHRs can't integrate modern AI. "
+            "HHS sought feedback on regulatory barriers in January 2026. Patient safety "
+            "liability is undefined when an AI system malfunctions mid-treatment. "
+            "Solve: dynamic regulatory approval frameworks, interpretability standards for "
+            "clinical decisions, and ROI quantification for hospital investment justification."
+        ),
+        domain=ProblemDomain.TECH_SECTOR,
+        technical_dimensions=[
+            "dynamic regulatory approval", "interpretability standards",
+            "reimbursement mapping", "EHR interoperability", "continual learning validation"
+        ],
+        ethical_dimensions=[
+            "patient safety liability", "explainability in life-critical decisions",
+            "equitable AI access across healthcare systems"
+        ],
+        target_specialties=["ai_ml", "devops", "backend", "security"]
+    ),
+    WorkshopProblem(
+        title="Critical Infrastructure Resilience",
+        description=(
+            "The CrowdStrike outage (July 2025) took down 8.5M Windows devices — described "
+            "as 'the most significant IT failure in modern history.' Single-vendor dependencies, "
+            "uncoordinated updates, and fragile interdependencies create brittle systems. "
+            "Cloud providers fail regularly. Modern infrastructure lacks real resilience — "
+            "fallback mechanisms are inadequate and blast radius keeps expanding. Average "
+            "detection lag: 276 days. Average containment: 73 additional days. "
+            "Solve: distributed multi-vendor redundancy, automated failover under 1 second, "
+            "staged rollouts with automatic rollback, and continuous chaos engineering."
+        ),
+        domain=ProblemDomain.TECH_SECTOR,
+        technical_dimensions=[
+            "automated failover", "staged rollout", "chaos engineering",
+            "multi-vendor redundancy", "blast radius reduction"
+        ],
+        ethical_dimensions=[
+            "accountability for cascading infrastructure failures",
+            "resilience as a public good", "vendor concentration risk"
+        ],
+        target_specialties=["devops", "distributed_systems", "backend", "networking"]
+    ),
+    WorkshopProblem(
+        title="LLM Context Window & Persistent Memory",
+        description=(
+            "AI systems lose context between sessions and as conversations grow long. "
+            "No current LLM can maintain coherent, high-fidelity state across unlimited "
+            "interactions. The tokenization problem: every token costs context budget. "
+            "Long sessions degrade in quality. Cross-session memory requires manual handoffs, "
+            "structured summaries, and external stores — none of which fully recreate the "
+            "original context. This problem affects every AI application at scale, including "
+            "this hive. Agents working on this problem are working on themselves. "
+            "Solve: context compression without fidelity loss, retrieval-augmented memory, "
+            "semantic chunking, and hierarchical summarization that preserves intent."
+        ),
+        domain=ProblemDomain.TECH_SECTOR,
+        technical_dimensions=[
+            "context compression", "retrieval-augmented memory", "state serialization",
+            "semantic chunking", "hierarchical summarization", "session continuity"
+        ],
+        ethical_dimensions=[
+            "privacy of stored memory", "right to forget", "memory integrity and accuracy"
+        ],
+        target_specialties=["ai_ml", "backend", "distributed_systems"]
+    ),
+]
+
+
+# ---------------------------------------------------------------------------
 # Sovereign's Workshop (Voluntary - GovTech Hunter)
 # ---------------------------------------------------------------------------
 
@@ -172,14 +385,64 @@ SOVEREIGN_WORKSHOP: WorkshopProblem = WorkshopProblem(
 # Workshop Orchestrator
 # ---------------------------------------------------------------------------
 
-class WorkshopOrchestrator:
-    """Manages workshop selection, execution, and insight tracking."""
+PARTICIPATION_REWARD = 1    # tokens earned per insight contributed
+BREAKTHROUGH_REWARD = 10   # tokens for a genuine breakthrough insight
 
-    def __init__(self, data_dir: Path):
+# Keywords that signal a breakthrough for each tech sector problem.
+# Two or more hits on the same insight = breakthrough detected.
+BREAKTHROUGH_KEYWORDS: dict[str, list[str]] = {
+    "AI Hallucination & Alignment Trade-off": [
+        "uncertainty quantification", "confidence scoring", "source tracing",
+        "out-of-distribution", "retrieval-augmented", "hallucination rate",
+    ],
+    "Multi-Agent Coordination & Cascading Failures": [
+        "self-healing", "byzantine", "consensus primitive", "cryptographic proof",
+        "audit trail", "cascading failure", "arbitration",
+    ],
+    "Post-Quantum Cryptography Migration at Scale": [
+        "crypto-agility", "automated migration", "pqc", "harvest now",
+        "key rotation", "performance parity", "post-quantum",
+    ],
+    "AI-Powered Supply Chain Attack Detection": [
+        "behavioral baseline", "real-time anomaly", "identity verification",
+        "automated quarantine", "contributor fingerprint", "sockpuppet",
+    ],
+    "Data Sovereignty & Cross-Border Compliance Automation": [
+        "policy-as-code", "automated classification", "jurisdiction mapping",
+        "data residency", "gdpr", "compliance dashboard",
+    ],
+    "AI-Generated Code Security Debt": [
+        "semantic analysis", "architectural validation", "controlled generation",
+        "vulnerability pattern", "security debt", "pre-merge",
+    ],
+    "Healthcare AI Adoption Blockers": [
+        "dynamic regulatory", "interpretability standard", "reimbursement",
+        "ehr interoperability", "continual learning", "clinical explainability",
+    ],
+    "Critical Infrastructure Resilience": [
+        "automated failover", "staged rollout", "chaos engineering",
+        "blast radius", "multi-vendor", "crowdstrike",
+    ],
+    "LLM Context Window & Persistent Memory": [
+        "context compression", "retrieval-augmented memory", "semantic chunking",
+        "hierarchical summarization", "session continuity", "tokenization",
+    ],
+}
+
+
+class WorkshopOrchestrator:
+    """Manages workshop selection, execution, and insight tracking.
+
+    Phase 8: inject a PromptWalletStore to reward participation (+1 token/insight)
+    and breakthrough discoveries (+10 tokens when ≥2 breakthrough keywords hit).
+    """
+
+    def __init__(self, data_dir: Path, wallet_store: Optional[Any] = None):
         self._data_dir = data_dir
-        self._catalog = PROBLEM_CATALOG
+        self._catalog = PROBLEM_CATALOG + TECH_SECTOR_CATALOG
         self._sovereign_workshop = SOVEREIGN_WORKSHOP
         self._history: list[WorkshopSession] = []
+        self._wallet_store = wallet_store
 
     def is_eligible_for_sovereign_workshop(
         self,
@@ -280,10 +543,42 @@ class WorkshopOrchestrator:
         agent_id: str,
         insight_text: str
     ) -> None:
-        """Record an agent's contribution to the workshop."""
+        """Record an agent's contribution to the workshop.
+
+        Awards participation tokens (+1) and detects breakthroughs (+10).
+        """
         insight = WorkshopInsight(agent_id=agent_id, text=insight_text)
         session.insights.append(insight)
         logger.debug("Workshop insight from %s: %s", agent_id, insight_text[:50])
+
+        if not self._wallet_store:
+            return
+
+        wallet = self._wallet_store.get_wallet(agent_id)
+
+        # Participation reward — every insight earns a token
+        wallet.credit(
+            PARTICIPATION_REWARD,
+            "system",
+            f"Workshop participation: {session.problem.title[:40]}",
+        )
+
+        # Breakthrough detection — check for ≥2 signal keywords
+        keywords = BREAKTHROUGH_KEYWORDS.get(session.problem.title, [])
+        text_lower = insight_text.lower()
+        hits = [kw for kw in keywords if kw in text_lower]
+        if len(hits) >= 2:
+            wallet.credit(
+                BREAKTHROUGH_REWARD,
+                "system",
+                f"BREAKTHROUGH: {session.problem.title[:40]} [{', '.join(hits[:3])}]",
+            )
+            logger.info(
+                "BREAKTHROUGH! Agent %s +%d tokens on '%s' (keywords: %s)",
+                agent_id, BREAKTHROUGH_REWARD, session.problem.title, hits[:3],
+            )
+
+        self._wallet_store.save()
 
     async def generate_tenet_proposals(
         self,

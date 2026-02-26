@@ -85,6 +85,8 @@ class ProblemDomain(str, Enum):
     INFRASTRUCTURE = "infrastructure"    # Distributed architecture
     # Sovereign's Workshop (voluntary)
     SOVEREIGN_CRAFT = "sovereign_craft"  # GovTech Hunter / Saturation Principle
+    # Phase 8: Real-World Tech Sector Problems
+    TECH_SECTOR = "tech_sector"          # Current unsolved industry problems
 
 
 # ---------------------------------------------------------------------------
