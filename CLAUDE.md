@@ -1,4 +1,4 @@
-# PureSwarm v0.2.0
+# PureSwarm v1.0.0
 
 Autonomous agent swarm where agents develop shared beliefs through consensus. Agents earn, hold, and trade sacred prompt tokens. The Great Consolidation is complete: 905 tenets pruned to 10.
 

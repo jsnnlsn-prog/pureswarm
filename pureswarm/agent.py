@@ -281,6 +281,9 @@ class Agent:
             # STOP ADDITIVE GROWTH IN EMERGENCY MODE
             if emergency and not can_use_llm:
                 text = None
+            # NO_NEW_TENETS: tenets are permanently locked — skip LLM call entirely (no token spend)
+            elif os.getenv("NO_NEW_TENETS") == "TRUE":
+                text = None
             else:
                 # Sacred Prompt Tokens: gate LLM calls for Triad/Researcher agents
                 skip_llm_proposal = False
@@ -342,55 +345,51 @@ class Agent:
                             except Exception as e:
                                 logger.error("Failed to parse DELETE proposal: %s", e)
 
-                    # NO_NEW_TENETS mode: tenets are LOCKED — block ALL proposals (ADD, FUSE, DELETE)
-                    if os.getenv("NO_NEW_TENETS") == "TRUE":
-                        logger.debug("Agent %s skipping %s proposal (tenets locked)", self.id, action.value)
-                    else:
-                        proposal = Proposal(
-                            tenet_text=tenet_text,
-                            proposed_by=self.id,
+                    proposal = Proposal(
+                        tenet_text=tenet_text,
+                        proposed_by=self.id,
+                        action=action,
+                        target_ids=target_ids,
+                        created_round=round_number,
+                    )
+
+                    # SQUAD COMPETITION: Enforce Prompt Economy check before submitting
+                    can_submit = True
+                    if squad_competition and self.squad_id:
+                        # record_proposal returns False if out of prompts
+                        can_submit = squad_competition.record_proposal(
+                            squad_id=self.squad_id,
+                            proposal_id=proposal.id,
                             action=action,
-                            target_ids=target_ids,
-                            created_round=round_number,
+                            tenets_targeted=len(target_ids) if target_ids else 1
                         )
 
-                        # SQUAD COMPETITION: Enforce Prompt Economy check before submitting
-                        can_submit = True
-                        if squad_competition and self.squad_id:
-                            # record_proposal returns False if out of prompts
-                            can_submit = squad_competition.record_proposal(
-                                squad_id=self.squad_id,
-                                proposal_id=proposal.id,
-                                action=action,
-                                tenets_targeted=len(target_ids) if target_ids else 1
-                            )
+                    if can_submit and self._consensus.submit_proposal(proposal):
+                        proposals_made += 1
+                        stats["proposals_made"] += 1
 
-                        if can_submit and self._consensus.submit_proposal(proposal):
-                            proposals_made += 1
-                            stats["proposals_made"] += 1
-
-                            # Broadcast proposal message
-                            await self._bus.broadcast(
-                                Message(
-                                    sender=self.id,
-                                    type=MessageType.PROPOSAL,
-                                    payload={
-                                        "proposal_id": proposal.id,
-                                        "tenet_text": text,
-                                    },
-                                )
+                        # Broadcast proposal message
+                        await self._bus.broadcast(
+                            Message(
+                                sender=self.id,
+                                type=MessageType.PROPOSAL,
+                                payload={
+                                    "proposal_id": proposal.id,
+                                    "tenet_text": text,
+                                },
                             )
-                            await self._audit.log(
-                                AuditEntry(
-                                    agent_id=self.id,
-                                    action="proposal_submitted",
-                                    details={
-                                        "proposal_id": proposal.id,
-                                        "text": text,
-                                        "round": round_number,
-                                    },
-                                )
+                        )
+                        await self._audit.log(
+                            AuditEntry(
+                                agent_id=self.id,
+                                action="proposal_submitted",
+                                details={
+                                    "proposal_id": proposal.id,
+                                    "text": text,
+                                    "round": round_number,
+                                },
                             )
+                        )
 
         # 4. REFLECT — record what happened this round
         observation = (
